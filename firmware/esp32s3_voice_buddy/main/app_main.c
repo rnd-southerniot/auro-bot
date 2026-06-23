@@ -16,6 +16,7 @@
 #include "freertos/stream_buffer.h"
 #include "freertos/task.h"
 #include "link.h"
+#include "sr.h"
 
 static StreamBufferHandle_t s_tts_sb;  // PCM bytes from Pi -> speaker
 static volatile bool s_audio_ok = false;
@@ -48,16 +49,31 @@ static void on_frame(uint8_t type, const uint8_t *payload, uint16_t len) {
     }
 }
 
-static void mic_task(void *arg) {
-    (void)arg;
-    static int16_t buf[AUDIO_FRAME_SAMPLES];
-    for (;;) {
-        int n = audio_mic_read(buf, AUDIO_FRAME_SAMPLES);
-        if (n > 0) {
-            link_send(T_AUDIO_MIC, (const uint8_t *)buf, (uint16_t)(n * 2));
-        } else {
-            vTaskDelay(pdMS_TO_TICKS(2));
-        }
+// SR (esp-sr) owns the mic now. After the wake word, AFE-enhanced audio streams
+// to the Pi for STT; before that the mic is consumed only by wake/command detection.
+static void on_sr_audio(const int16_t *pcm, int samples) {
+    int i = 0;
+    while (i < samples) {
+        int n = samples - i;
+        if (n > AUDIO_FRAME_SAMPLES) n = AUDIO_FRAME_SAMPLES;
+        link_send(T_AUDIO_MIC, (const uint8_t *)(pcm + i), (uint16_t)(n * 2));
+        i += n;
+    }
+}
+
+static void on_sr_event(sr_event_t evt) {
+    switch (evt) {
+        case SR_EVT_WAKE:
+            link_send_json(T_EVENT, "{\"event\":\"wake\"}");
+            face_set(FACE_LISTENING);
+            break;
+        case SR_EVT_STOP:
+            link_send_json(T_EVENT, "{\"event\":\"stop\"}");
+            face_set(FACE_HALTED);
+            break;
+        case SR_EVT_IDLE:
+            face_set(FACE_IDLE);
+            break;
     }
 }
 
@@ -109,5 +125,8 @@ void app_main(void) {
 
     if (!link_err) face_set(FACE_IDLE);
     xTaskCreatePinnedToCore(spk_task, "spk", 4096, NULL, 11, NULL, 1);
-    xTaskCreatePinnedToCore(mic_task, "mic", 4096, NULL, 10, NULL, 1);
+
+    // On-device speech: WakeNet "Jarvis" + MultiNet "stop"/"halt". Owns the mic.
+    bool sr_ok = sr_start(on_sr_event, on_sr_audio);
+    link_send_json(T_STATUS, sr_ok ? "{\"step\":\"sr_ok\"}" : "{\"step\":\"sr_missing\"}");
 }

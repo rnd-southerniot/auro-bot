@@ -58,7 +58,12 @@ int audio_mic_read(int16_t *out, int max_samples) {
     }
     int n = (int)(bytes_read / sizeof(int32_t));
     for (int i = 0; i < n; ++i) {
-        out[i] = (int16_t)(buf32[i] >> 16);
+        // INMP441 is 24-bit MSB-aligned in a 32-bit slot. >>16 was too quiet for
+        // WakeNet; >>13 boosts ~8x. Saturate so loud speech doesn't wrap.
+        int32_t v = buf32[i] >> 13;
+        if (v > 32767) v = 32767;
+        else if (v < -32768) v = -32768;
+        out[i] = (int16_t)v;
     }
     return n;
 }

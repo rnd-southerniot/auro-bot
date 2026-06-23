@@ -21,3 +21,11 @@ CONFIG_ESP_CONSOLE_NONE=y
 CONFIG_FREERTOS_HZ=1000
 CONFIG_ESP_TASK_WDT_INIT=n
 CONFIG_COMPILER_OPTIMIZATION_PERF=y
+
+# --- esp-sr: AFE + WakeNet (Jarvis) + MultiNet (English) ---
+CONFIG_MODEL_IN_FLASH=y                 # models live in the "model" flash partition
+CONFIG_AFE_INTERFACE_V1=y
+CONFIG_SR_NSN_WEBRTC=y                   # WebRTC noise-suppress (no extra model binary)
+CONFIG_SR_VADN_WEBRTC=y                  # WebRTC VAD (no extra model binary)
+CONFIG_SR_WN_WN9_JARVIS_TTS=y           # wake word "Jarvis" (swap later for Hey Auro model)
+CONFIG_SR_MN_EN_MULTINET7_QUANT=y       # English MultiNet7 -> runtime commands "stop"/"halt"
