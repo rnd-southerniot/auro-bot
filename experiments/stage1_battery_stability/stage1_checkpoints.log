@@ -1,0 +1,4 @@
+2026-04-13T16:56:53+06:00 | up=0.05h | temp=51C | mem=6199MB | bus_v=5.05625V | vwarn=43 | rp2040=YES | ros=True | base=True | imu=True | pwr=True | ctrl=IDLE OK | odom_age=0.004s
+2026-04-13T17:00:12+06:00 | up=0.11h | temp=51C | mem=6195MB | bus_v=5.046875V | vwarn=53 | rp2040=YES | ros=True | base=True | imu=True | pwr=True | ctrl=IDLE OK | odom_age=0.009s
+2026-04-13T17:05:15+06:00 | up=0.19h | temp=51C | mem=6206MB | bus_v=5.059375V | vwarn=57 | rp2040=YES | ros=True | base=True | imu=True | pwr=True | ctrl=IDLE OK | odom_age=0.068s
+2026-04-13T17:10:17+06:00 | up=0.28h | temp=53C | mem=6199MB | bus_v=5.059375V | vwarn=63 | rp2040=YES | ros=True | base=True | imu=True | pwr=True | ctrl=IDLE OK | odom_age=0.045s

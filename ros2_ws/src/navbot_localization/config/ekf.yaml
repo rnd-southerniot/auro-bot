@@ -1,0 +1,55 @@
+ekf_filter_node:
+  ros__parameters:
+    # 2026-04-22 (session 9): rewritten for diff-drive Navbot after
+    # IMU driver + complementary filter Layer 1/2 validation.
+    # Wheel odom: trust for x, y, vx (encoders are accurate).
+    # IMU (fused /imu/data): trust for yaw + yaw_rate (gyro is
+    # drift-free short-term, complementary filter gravity-aligns).
+    # Magnetometer is NOT used — local field 1.4 gauss near motor
+    # stack indicates strong hard-iron, deferred to calibration pass.
+    use_sim_time: false
+    frequency: 30.0
+    sensor_timeout: 0.2
+    two_d_mode: true
+    publish_tf: true
+    publish_acceleration: false
+    map_frame: map
+    odom_frame: odom
+    # base_footprint is the ground-plane frame the rest of the stack
+    # tracks (SLAM, Nav2, URDF). EKF publishes odom -> base_footprint.
+    base_link_frame: base_footprint
+    world_frame: odom
+
+    odom0: /odom
+    # Fields in robot_localization config arrays:
+    #   [  x,   y,   z,
+    #    roll, pitch, yaw,
+    #     vx,  vy,  vz,
+    #    vroll, vpitch, vyaw,
+    #     ax,  ay,  az ]
+    # Wheel odom provides absolute x, y (dead-reckoned from encoders)
+    # and vx (direct from encoder rate). Yaw from wheels is known
+    # noisy (we saw ~4° drift per 360° rotation pre-IMU) so we
+    # DELIBERATELY EXCLUDE wheel yaw and vyaw here — IMU carries them.
+    odom0_config: [true,  true,  false,
+                   false, false, false,
+                   true,  false, false,
+                   false, false, false,
+                   false, false, false]
+    odom0_differential: false
+    odom0_relative: false
+    odom0_queue_size: 10
+
+    # Subscribe to the COMPLEMENTARY-FILTERED IMU (/imu/data), not the
+    # raw topic — /imu/data has the orientation quaternion filled in
+    # by imu_complementary_filter. Fuse absolute yaw + vyaw only.
+    imu0: /imu/data
+    imu0_config: [false, false, false,
+                  false, false, true,
+                  false, false, false,
+                  false, false, true,
+                  false, false, false]
+    imu0_differential: false
+    imu0_relative: true
+    imu0_queue_size: 10
+    imu0_remove_gravitational_acceleration: false

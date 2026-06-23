@@ -1,0 +1,14 @@
+{
+  "//": "OPTIONAL. Attaches the existing SIoT 'navbot-knowledge' gateway as a",
+  "//2": "repo-local MCP server so a fresh clone gets the project's mirrored",
+  "//3": "skills/memory/docs as queryable tools. KNOWLEDGE/READ ONLY — this does",
+  "//4": "NOT expose any robot-control tool. Requires gateway reachability + the",
+  "//5": "NAVBOT_MCP_TOKEN env var. Delete this file if you don't use the gateway.",
+  "mcpServers": {
+    "navbot-knowledge": {
+      "type": "http",
+      "url": "http://10.10.8.113:8000/mcp",
+      "headers": { "Authorization": "Bearer ${NAVBOT_MCP_TOKEN}" }
+    }
+  }
+}

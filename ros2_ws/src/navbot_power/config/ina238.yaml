@@ -1,0 +1,8 @@
+navbot_ina238_reader:
+  ros__parameters:
+    i2c_bus: 1
+    i2c_address: 64
+    shunt_resistance_ohm: 0.015
+    max_current_a: 3.0
+    adcrange: 1
+    poll_hz: 2.0

@@ -1,0 +1,26 @@
+navbot_serial_bridge:
+  ros__parameters:
+    serial_port: /dev/serial/by-id/usb-Raspberry_Pi_Pico_E661410403114B35-if00
+    baud_rate: 115200
+    # 2026-04-22 (session 10): 0.033 → 0.0325 m. Aligns with firmware
+    # LEFT/RIGHT_WHEEL_RADIUS_M (session 8, commit afe3bbc) and URDF
+    # xacro:property wheel_radius. The bridge uses this for its own
+    # odometry/JointState math (odometry.py meters-per-count, and
+    # serial_bridge.py wheel-velocity → angular-velocity conversion).
+    # A 1.5 % mismatch here compounded with firmware odom per rotation.
+    wheel_radius: 0.0325
+    wheel_separation: 0.180
+    counts_per_revolution: 3945
+    left_counts_per_revolution: 3943
+    right_counts_per_revolution: 3946
+    command_timeout: 0.5
+    odom_frame: odom
+    base_frame: base_footprint
+    base_link_frame: base_link
+    laser_frame: laser_link
+    # 2026-04-22 (session 9): EKF (navbot_localization/ekf_filter_node)
+    # now owns the odom -> base_footprint TF broadcast. Wheel odom
+    # still publishes the /odom TOPIC (consumed by EKF); just not TF.
+    # If running a slam-only bring-up without the EKF, pass
+    # `publish_tf:=true` via launch arg or this TF chain breaks.
+    publish_tf: false

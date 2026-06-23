@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Navbot Ground Test Console</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="panel hero">
+        <div>
+          <p class="eyebrow">Ground Test Console</p>
+          <h1>Drive The Robot And Capture LiDAR Bags</h1>
+          <p class="lede">Simple local-network browser tool for teleop, base status, and LiDAR capture during bring-up.</p>
+        </div>
+        <div class="status-grid">
+          <div class="status-card">
+            <span class="label">ROS</span>
+            <strong id="ros-status">Waiting</strong>
+          </div>
+          <div class="status-card">
+            <span class="label">Base</span>
+            <strong id="base-status">Unknown</strong>
+          </div>
+          <div class="status-card">
+            <span class="label">LiDAR</span>
+            <strong id="scan-status">Unknown</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel controls">
+        <div class="section-head">
+          <h2>Movement</h2>
+          <p>Hold a button or use keyboard <code>W A S D</code> / arrows. Releasing control stops motion.</p>
+        </div>
+        <div class="button-grid">
+          <button class="drive" data-linear="1" data-angular="0">Forward</button>
+          <button class="drive" data-linear="0" data-angular="1">Rotate Left</button>
+          <button class="drive" data-linear="0" data-angular="-1">Rotate Right</button>
+          <button class="drive" data-linear="-1" data-angular="0">Backward</button>
+          <button id="stop-button" class="stop">STOP</button>
+        </div>
+        <div class="slider-grid">
+          <label>
+            Linear Speed
+            <input id="linear-speed" type="range" min="0.03" max="0.20" step="0.01" value="0.05" />
+            <span id="linear-speed-value">0.05 m/s</span>
+          </label>
+          <label>
+            Angular Speed
+            <input id="angular-speed" type="range" min="0.20" max="1.20" step="0.05" value="0.35" />
+            <span id="angular-speed-value">0.35 rad/s</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel metrics">
+        <div class="section-head">
+          <h2>Base Status</h2>
+        </div>
+        <div class="metric-grid">
+          <div><span>Controller</span><strong id="controller-state">UNKNOWN</strong></div>
+          <div><span>ESTOP</span><strong id="estop-state">Unknown</strong></div>
+          <div><span>Odom X</span><strong id="odom-x">0.00</strong></div>
+          <div><span>Odom Y</span><strong id="odom-y">0.00</strong></div>
+          <div><span>Yaw</span><strong id="odom-yaw">0.00</strong></div>
+          <div><span>Linear</span><strong id="odom-linear">0.00</strong></div>
+          <div><span>Angular</span><strong id="odom-angular">0.00</strong></div>
+          <div><span>Last Odom</span><strong id="odom-age">-</strong></div>
+          <div><span>Scan Frame</span><strong id="scan-frame">-</strong></div>
+          <div><span>Scan Beams</span><strong id="scan-beams">0</strong></div>
+          <div><span>Last Scan</span><strong id="scan-age">-</strong></div>
+          <div><span>Last Joint</span><strong id="joint-age">-</strong></div>
+        </div>
+      </section>
+
+      <section class="panel batteries">
+        <div class="section-head">
+          <h2>Battery Voltages</h2>
+          <p>RP2040 ADC readings via voltage dividers on the motor and LiDAR power rails.</p>
+        </div>
+        <div class="metric-grid">
+          <div><span>Motor Rail</span><strong id="bat-motor-voltage">-</strong></div>
+          <div><span>LiDAR Rail</span><strong id="bat-lidar-voltage">-</strong></div>
+          <div><span>Last Update</span><strong id="bat-age">-</strong></div>
+        </div>
+      </section>
+
+      <section class="panel power">
+        <div class="section-head">
+          <h2>Pi Rail Telemetry</h2>
+          <p>INA238 rail telemetry on the Pi 5V bus. This is measured voltage/current/power, not battery percentage.</p>
+        </div>
+        <div class="metric-grid">
+          <div><span>Status</span><strong id="power-status">Unknown</strong></div>
+          <div><span>Last Power</span><strong id="power-age">-</strong></div>
+          <div><span>Bus Voltage</span><strong id="power-bus-voltage">-</strong></div>
+          <div><span>Current</span><strong id="power-current">-</strong></div>
+          <div><span>Power</span><strong id="power-power">-</strong></div>
+          <div><span>Shunt Voltage</span><strong id="power-shunt-voltage">-</strong></div>
+          <div><span>Temperature</span><strong id="power-temperature">-</strong></div>
+          <div class="metric-wide"><span>Sensor Message</span><strong id="power-message">-</strong></div>
+        </div>
+      </section>
+
+      <section class="panel imu">
+        <div class="section-head">
+          <h2>IMU Telemetry</h2>
+          <p>Compass-derived heading with tilt-compensated yaw, pitch, and roll.</p>
+        </div>
+        <div class="metric-grid">
+          <div><span>Status</span><strong id="imu-status">Unknown</strong></div>
+          <div><span>Last IMU</span><strong id="imu-age">-</strong></div>
+          <div><span>Heading</span><strong id="imu-heading">-</strong></div>
+          <div><span>Yaw</span><strong id="imu-yaw">-</strong></div>
+          <div><span>Pitch</span><strong id="imu-pitch">-</strong></div>
+          <div><span>Roll</span><strong id="imu-roll">-</strong></div>
+          <div><span>Variant</span><strong id="imu-variant">-</strong></div>
+          <div><span>Frame</span><strong id="imu-frame">-</strong></div>
+          <div><span>Gyro Addr</span><strong id="imu-gyro-address">-</strong></div>
+          <div><span>Accel Addr</span><strong id="imu-accel-address">-</strong></div>
+          <div><span>Mag Addr</span><strong id="imu-mag-address">-</strong></div>
+          <div class="metric-wide"><span>IMU Message</span><strong id="imu-message">-</strong></div>
+        </div>
+      </section>
+
+      <section class="panel capture">
+        <div class="section-head">
+          <h2>LiDAR Capture</h2>
+          <p>Records a rosbag with LiDAR, odom, filtered odometry, IMU, TF, controller state, estop, and cmd_vel.</p>
+        </div>
+        <div class="capture-bar">
+          <input id="capture-label" type="text" value="ground_test" placeholder="test label" />
+          <button id="capture-start">Start Capture</button>
+          <button id="capture-stop">Stop Capture</button>
+        </div>
+        <div class="capture-meta">
+          <div><span>Active</span><strong id="capture-active">No</strong></div>
+          <div><span>Folder</span><strong id="capture-folder">-</strong></div>
+          <div><span>Error</span><strong id="capture-error">-</strong></div>
+        </div>
+        <ul id="capture-list"></ul>
+      </section>
+    </main>
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,77 @@
+diff --git a/firmware/makerpi_rp2040_base/include/config.h b/firmware/makerpi_rp2040_base/include/config.h
+index caf437b..9bbf81f 100644
+--- a/firmware/makerpi_rp2040_base/include/config.h
++++ b/firmware/makerpi_rp2040_base/include/config.h
+@@ -75,4 +75,20 @@
+ #define VBAT_INTERVAL_MS        500
+ #define VBAT_SMOOTH_SAMPLES     4
+ 
++/*
++ * Speed-gated active braking on cmd_vel=0 (WMODE_IDLE).
++ *
++ * When the current filtered wheel speed is below this threshold, the
++ * motor output switches to MX1508 BRAKE mode (both IN pins ~100% HIGH,
++ * shorting the winding for regenerative brake). Above this threshold
++ * the motor coasts until the wheel decays below threshold, then the
++ * next control tick engages the brake.
++ *
++ * 0.15 m/s is below MAX_WHEEL_MPS (0.30) so brake current stays within
++ * the MX1508's 1A/channel continuous limit. Do not raise without
++ * reviewing brake-current math. Safety faults always force coast
++ * regardless of speed.
++ */
++#define BRAKE_SPEED_THRESHOLD_MPS 0.15f
++
+ #endif
+diff --git a/firmware/makerpi_rp2040_base/src/wheel.c b/firmware/makerpi_rp2040_base/src/wheel.c
+index 411e7f9..757c1df 100644
+--- a/firmware/makerpi_rp2040_base/src/wheel.c
++++ b/firmware/makerpi_rp2040_base/src/wheel.c
+@@ -28,6 +28,29 @@ static void wheel_motor_coast(wheel_t *w) {
+     pwm_set_chan_level(w->pwm_slice, PWM_CHAN_B, 0);
+ }
+ 
++static void wheel_motor_brake(wheel_t *w) {
++    /* MX1508 brake mode: both IN pins held HIGH shorts the winding for
++     * regenerative braking. PWM at full duty approximates continuous
++     * HIGH (~62.5 ns off per 62.5 us cycle — swallowed by winding L). */
++    pwm_set_chan_level(w->pwm_slice, PWM_CHAN_A, MOTOR_PWM_WRAP);
++    pwm_set_chan_level(w->pwm_slice, PWM_CHAN_B, MOTOR_PWM_WRAP);
++}
++
++static void wheel_apply_idle_output(wheel_t *w) {
++    /* Speed-gated brake on WMODE_IDLE. Safety faults always coast so
++     * ESTOP leaves the wheels free to be pushed manually. */
++    if (safety_is_faulted()) {
++        wheel_motor_coast(w);
++        return;
++    }
++    float current_mps = fabsf(wheel_cps_to_mps(w, w->speed_filtered));
++    if (current_mps < BRAKE_SPEED_THRESHOLD_MPS) {
++        wheel_motor_brake(w);
++    } else {
++        wheel_motor_coast(w);
++    }
++}
++
+ static int16_t wheel_slew_duty(int16_t current, int16_t target) {
+     int16_t delta = target - current;
+ 
+@@ -197,7 +220,7 @@ void wheel_stop(wheel_t *w) {
+     w->stall_timer_ms = 0;
+     w->stall_inhibit_ms = 0;
+     pid_reset(&w->speed_pid);
+-    wheel_motor_coast(w);
++    wheel_apply_idle_output(w);
+     w->mode = WMODE_IDLE;
+ }
+ 
+@@ -218,6 +241,8 @@ bool wheel_tick(wheel_t *w, float dt) {
+         float duty_cmd = pid_update(&w->speed_pid, w->speed_setpoint_cps, w->speed_filtered, dt);
+         w->duty = wheel_slew_duty(w->duty, (int16_t)duty_cmd);
+         wheel_motor_set(w, w->duty);
++    } else if (w->mode == WMODE_IDLE) {
++        wheel_apply_idle_output(w);
+     }
+ 
+     int16_t abs_duty = (w->duty < 0) ? -w->duty : w->duty;

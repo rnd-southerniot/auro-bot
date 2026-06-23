@@ -1,0 +1,62 @@
+navbot_l3gd20_lsm303d_reader:
+  ros__parameters:
+    i2c_bus: 1
+    gyro_address: 105
+    accel_address: 25
+    mag_address: 30
+    # 2026-04-22 (session 9): bumped 20 → 50 Hz for complementary
+    # filter fusion. Each poll is 3 × I²C transactions (~0.3 ms);
+    # 50 Hz fits comfortably.
+    poll_hz: 50.0
+    frame_id: imu_link
+    # 2026-04-22 (session 9): IMU reoriented with sensor-X axis
+    # pointing robot-forward. Previously "y_forward" (chip Y axis
+    # pointed forward). Phase 0 reread confirmed Z still up (+0.89 g).
+    # 2026-06-16 (remount): board went back flipped 180° about the
+    # forward (X) axis (accel_z read -10.99, roll ~176°). Kept the
+    # flipped mount and switched to x_forward_flipped, which inverts
+    # Y and Z to restore Z-up. Verify on HW: accel_z ~+9.8 at rest;
+    # tilt/rotate test for gyro.z (+CCW) and yaw_sign below.
+    sensor_orientation: x_forward_flipped
+    gyro_rad_per_sec_per_lsb: 0.00015271630954950383
+    accel_mps2_per_lsb: 0.00059820565
+    # 2026-04-22 (session 10): mag gain raised ±1.3 → ±4.0 gauss
+    # (driver CRB_REG_M 0x20 → 0x80) to fit motor-induced +1.4 gauss
+    # Y-axis bias + Earth field within range. Sensitivities drop per
+    # datasheet Table 75: XY 1100 → 450 LSB/gauss, Z 980 → 400.
+    #   tesla/LSB = 1 / (LSB_per_gauss × 10000 gauss/T)
+    #   XY: 1 / (450 × 10000) = 2.2222e-7
+    #   Z:  1 / (400 × 10000) = 2.5000e-7
+    mag_tesla_per_lsb_xy: 2.2222222222222222e-07
+    mag_tesla_per_lsb_z: 2.5e-07
+    angular_velocity_variance: 0.0004
+    linear_acceleration_variance: 0.04
+    magnetic_field_variance: 1.0e-10
+    # 2026-04-22 (session 10): hard-iron calibration recaptured for
+    # axle-height mount at ±4.0 gauss gain. With sensor_orientation
+    # = x_forward the sensor frame equals the robot frame (identity
+    # remap), so these offsets are ALSO valid robot-frame offsets.
+    # Captured via /tmp/mag_calibration.py from a 60 s rotation
+    # sweep — 3001 samples, XY half-ranges 0.56/0.52 gauss (Earth
+    # ≈0.5), confirming a clean sphere fit.
+    #
+    # If sensor_orientation is ever changed to y_forward, recalibrate
+    # — these numbers will no longer match the sensor-frame basis.
+    # Z remains sphere-fit only (partial tilt coverage).
+    # 2026-06-16: STALE after the x_forward_flipped remount — the
+    # hard-iron field direction relative to the sensor frame changed
+    # when the board was flipped. MUST recapture via a fresh 60 s
+    # rotation sweep before re-enabling mag fusion / trusting heading.
+    # Values below are the pre-flip session-10 capture, kept only for
+    # reference until the new sweep overwrites them.
+    mag_offset_x_t: -4.666666e-06      # -0.047 gauss
+    mag_offset_y_t:  1.418889e-04      # +1.419 gauss (motor bias)
+    mag_offset_z_t: -2.262500e-05      # -0.226 gauss
+    mag_scale_x: 1.0
+    mag_scale_y: 1.0
+    mag_scale_z: 1.0
+    # Dhaka, Bangladesh — update for other deployment sites via NOAA WMM.
+    magnetic_declination_rad: -0.016
+    yaw_offset_rad: 0.0
+    yaw_sign: -1.0
+    ypr_filter_alpha: 0.35

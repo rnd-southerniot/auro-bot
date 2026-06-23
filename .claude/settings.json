@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/sync_knowledge_to_mcp.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

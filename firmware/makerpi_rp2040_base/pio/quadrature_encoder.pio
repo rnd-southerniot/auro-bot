@@ -1,0 +1,40 @@
+; 4x quadrature decoder.
+; Watches two consecutive pins and pushes transition codes into the RX FIFO.
+
+.program quadrature_encoder
+
+    in pins, 2
+    mov y, isr
+
+.wrap_target
+    mov isr, null
+    in pins, 2
+    mov x, isr
+    jmp x!=y, changed
+    jmp cont
+changed:
+    mov isr, null
+    in y, 2
+    in x, 2
+    push noblock
+cont:
+    mov y, x
+.wrap
+
+% c-sdk {
+static inline void quadrature_encoder_program_init(PIO pio, uint sm, uint offset, uint pin_a) {
+    pio_sm_config c = quadrature_encoder_program_get_default_config(offset);
+    sm_config_set_in_pins(&c, pin_a);
+    sm_config_set_in_shift(&c, false, false, 32);
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
+
+    pio_gpio_init(pio, pin_a);
+    pio_gpio_init(pio, pin_a + 1);
+    pio_sm_set_consecutive_pindirs(pio, sm, pin_a, 2, false);
+    gpio_pull_up(pin_a);
+    gpio_pull_up(pin_a + 1);
+
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}

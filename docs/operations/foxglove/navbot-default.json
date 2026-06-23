@@ -1,0 +1,208 @@
+{
+  "configById": {
+    "Plot!1e7vdai": {
+      "paths": [
+        {
+          "value": "/base/motor_voltage.data",
+          "enabled": true,
+          "color": "#f5774d"
+        }
+      ],
+      "showLegend": false,
+      "foxglovePanelTitle": "/base/motor_voltage"
+    },
+    "Plot!2v4mfnd": {
+      "paths": [
+        {
+          "value": "/base/lidar_voltage.data",
+          "enabled": true,
+          "color": "#4e98e2"
+        }
+      ],
+      "showLegend": false,
+      "foxglovePanelTitle": "/base/lidar_voltage"
+    },
+    "Plot!20vrvm9": {
+      "paths": [
+        {
+          "value": "/base/serial_latency_ms.data",
+          "enabled": true,
+          "color": "#f7df71"
+        }
+      ],
+      "showLegend": false,
+      "foxglovePanelTitle": "/base/serial_latency_ms"
+    },
+    "Plot!3evog16": {
+      "paths": [
+        {
+          "value": "/cmd_vel.linear.x",
+          "enabled": true,
+          "color": "#5cd6a9"
+        },
+        {
+          "value": "/cmd_vel.linear.y",
+          "enabled": true,
+          "color": "#61cbff"
+        },
+        {
+          "value": "/cmd_vel.linear.z",
+          "enabled": true,
+          "color": "#a395e2"
+        }
+      ],
+      "showLegend": false,
+      "foxglovePanelTitle": "/cmd_vel"
+    },
+    "DiagnosticSummary!2cs392v": {
+      "topicToRender": "/diagnostics",
+      "minLevel": 0,
+      "pinnedIds": [],
+      "hardwareIdFilter": "",
+      "sortByLevel": true,
+      "secondsUntilStale": 5
+    },
+    "RawMessages!3qvhy3d": {
+      "topicPath": "/dock_pose",
+      "defaultExpanded": false
+    },
+    "3D!1r53yko": {
+      "cameraState": {
+        "perspective": true,
+        "distance": 20,
+        "phi": 60.000000000000234,
+        "thetaOffset": 60.00000000000057,
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {
+        "labelScaleFactor": 0.3
+      },
+      "transforms": {
+        "labelSize": 0.04
+      },
+      "topics": {
+        "/scan": {
+          "visible": true,
+          "colorField": "intensity",
+          "colorMode": "colormap",
+          "colorMap": "turbo"
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": true,
+          "drawBehind": false,
+          "instanceId": "faadff02-186d-47d1-af08-ab00c35b2823",
+          "layerId": "foxglove.Grid",
+          "size": 10,
+          "divisions": 10,
+          "lineWidth": 1,
+          "color": "#248eff",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ]
+        },
+        "214be665-278a-4a53-975c-732dac24148d": {
+          "controlMode": "transforms",
+          "jointStatesTopic": "",
+          "displayMode": "auto",
+          "fallbackColor": "#ffffff",
+          "showAxis": false,
+          "axisScale": 1,
+          "showOutlines": true,
+          "opacity": 1,
+          "visible": true,
+          "instanceId": "214be665-278a-4a53-975c-732dac24148d",
+          "layerId": "foxglove.Urdf",
+          "label": "URDF",
+          "sourceType": "param",
+          "url": "",
+          "filePath": "",
+          "parameter": "/robot_state_publisher.robot_description",
+          "topic": "",
+          "framePrefix": "",
+          "order": 1
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "synchronize": false,
+      "imageMode": {}
+    },
+    "Tab!1zasqtt": {
+      "activeTabIdx": 0,
+      "tabs": [
+        {
+          "title": "Overview",
+          "layout": {
+            "direction": "column",
+            "first": {
+              "direction": "column",
+              "first": {
+                "first": "Plot!1e7vdai",
+                "second": "Plot!2v4mfnd",
+                "direction": "row"
+              },
+              "second": {
+                "first": "Plot!20vrvm9",
+                "second": "Plot!3evog16",
+                "direction": "row"
+              },
+              "splitPercentage": 33.333333333333336
+            },
+            "second": {
+              "direction": "row",
+              "first": "DiagnosticSummary!2cs392v",
+              "second": "RawMessages!3qvhy3d",
+              "splitPercentage": 50
+            },
+            "splitPercentage": 80
+          }
+        }
+      ]
+    }
+  },
+  "layout": {
+    "direction": "row",
+    "first": "3D!1r53yko",
+    "second": "Tab!1zasqtt"
+  },
+  "globalVariables": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "userNodes": {}
+}

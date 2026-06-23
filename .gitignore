@@ -1,0 +1,47 @@
+# Build artifacts — RP2040 firmware
+build/
+*.uf2
+*.elf
+*.bin
+*.hex
+*.map
+*.dis
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# ROS 2 workspace build output
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+
+# vcs-imported external sources (see ros2_ws/navbot.repos)
+ros2_ws/src/sllidar_ros2/
+
+# emergency/sed backup files
+*.backup
+*.bak
+
+# macOS
+.DS_Store
+
+# IDE / editor / tool state
+.vscode/
+.idea/
+# Ignore .claude/ noise (local settings, todos) but TRACK the project
+# slash commands and shared settings so the control surface is versioned.
+.claude/*
+!.claude/commands/
+!.claude/settings.json
+*.swp
+*.swo
+*~
+
+# Captures (runtime output, not source)
+captures/*
+!captures/.gitkeep
+
+# Firmware archive (binary artifacts with checksums)
+firmware_archive/

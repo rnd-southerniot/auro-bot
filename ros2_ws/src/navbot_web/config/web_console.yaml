@@ -1,0 +1,32 @@
+navbot_web_console:
+  ros__parameters:
+    host: 0.0.0.0
+    port: 8080
+    capture_root: /home/arif/projects/makerpi-rp2040-ros2-navbot/captures
+    cmd_vel_topic: /cmd_vel
+    odom_topic: /odom
+    scan_topic: /scan
+    joint_states_topic: /joint_states
+    controller_state_topic: /base/controller_state
+    estop_topic: /base/estop
+    power_status_topic: /power/ina238/status
+    imu_status_topic: /imu/l3gd20_lsm303d/status
+    imu_raw_topic: /imu/l3gd20_lsm303d/raw
+    imu_mag_topic: /imu/l3gd20_lsm303d/mag
+    imu_ypr_topic: /imu/l3gd20_lsm303d/ypr
+    command_hold_timeout: 0.35
+    topic_stale_timeout: 1.0
+    capture_topics:
+      - /scan
+      - /odom
+      - /odometry/filtered
+      - /tf
+      - /tf_static
+      - /joint_states
+      - /base/controller_state
+      - /base/estop
+      - /cmd_vel
+      - /imu/l3gd20_lsm303d/raw
+      - /imu/l3gd20_lsm303d/mag
+      - /imu/l3gd20_lsm303d/ypr
+      - /heading_controller/status
