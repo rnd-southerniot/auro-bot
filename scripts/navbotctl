@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+"""navbotctl — thin CLI the headless Claude Code brain calls to act on the robot.
+
+Each subcommand POSTs to the brain's loopback control server (NAVBOT_CTL_URL,
+default http://127.0.0.1:8077) and prints the server's one-line result. The
+server applies the SafetyGate (drive-mode gate, clamps, abort); this CLI holds
+no robot logic and never touches the Pico. Stdlib only.
+
+Usage:
+  navbotctl drive-mode <on|off>
+  navbotctl drive --linear <m/s> --angular <rad/s> --duration <s>
+  navbotctl stop
+  navbotctl status
+  navbotctl face <idle|listening|thinking|speaking|driving|halted|low_battery>
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+import urllib.request
+
+BASE = os.environ.get("NAVBOT_CTL_URL", "http://127.0.0.1:8077").rstrip("/")
+
+
+def call(name: str, args: dict) -> str:
+    data = json.dumps(args).encode("utf-8")
+    req = urllib.request.Request(f"{BASE}/tool/{name}", data=data, method="POST")
+    req.add_header("Content-Type", "application/json")
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        payload = json.loads(resp.read().decode("utf-8"))
+    return payload.get("result", "")
+
+
+def _flag(args: list[str], name: str, default: float) -> float:
+    if name in args:
+        try:
+            return float(args[args.index(name) + 1])
+        except (IndexError, ValueError):
+            return default
+    return default
+
+
+def main(argv: list[str]) -> int:
+    if not argv:
+        print("usage: navbotctl <drive-mode|drive|stop|status|face> ...", file=sys.stderr)
+        return 2
+    cmd, rest = argv[0], argv[1:]
+    try:
+        if cmd == "drive-mode":
+            on = rest and rest[0].lower() in ("on", "true", "1", "enable", "enabled")
+            print(call("set_drive_mode", {"enabled": bool(on)}))
+        elif cmd == "drive":
+            print(call("drive", {
+                "linear": _flag(rest, "--linear", 0.0),
+                "angular": _flag(rest, "--angular", 0.0),
+                "duration": _flag(rest, "--duration", 0.0),
+            }))
+        elif cmd == "stop":
+            print(call("stop", {}))
+        elif cmd == "status":
+            print(call("get_status", {}))
+        elif cmd == "face":
+            print(call("set_face", {"state": rest[0] if rest else "idle"}))
+        else:
+            print(f"unknown command: {cmd}", file=sys.stderr)
+            return 2
+    except Exception as exc:  # noqa: BLE001
+        print(f"control server unreachable: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

@@ -30,10 +30,14 @@ from navbot_voice_io.loopback_tool import detect_port
 # The brain (LLM/tools/safety) lives in the sibling navbot_voice package. When
 # run from source (python3 -m navbot_voice_io.buddy_brain) that package isn't on
 # the path; add it so the fast dev loop keeps working without a colcon install.
-try:
+def _import_brains():
     from navbot_voice.agent import VoiceAgent
-    from navbot_voice.robot_client import RobotClient
-    from navbot_voice.safety import SafetyGate
+    from navbot_voice.claude_brain import ClaudeBrain
+    return ClaudeBrain, VoiceAgent
+
+
+try:
+    ClaudeBrain, VoiceAgent = _import_brains()
 except ImportError:  # pragma: no cover - dev convenience
     import pathlib
     import sys
@@ -42,13 +46,10 @@ except ImportError:  # pragma: no cover - dev convenience
     if _proj.exists():
         sys.path.insert(0, str(_proj))
     try:
-        from navbot_voice.agent import VoiceAgent
-        from navbot_voice.robot_client import RobotClient
-        from navbot_voice.safety import SafetyGate
+        ClaudeBrain, VoiceAgent = _import_brains()
     except ImportError:
+        ClaudeBrain = None  # type: ignore[assignment,misc]
         VoiceAgent = None  # type: ignore[assignment,misc]
-        RobotClient = None  # type: ignore[assignment,misc]
-        SafetyGate = None  # type: ignore[assignment,misc]
 
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "base.en")
 PIPER_BIN = os.path.expanduser(os.environ.get("PIPER_BIN", "~/piper/piper/piper"))
@@ -75,21 +76,35 @@ class BuddyBrain:
         self._agent = None
 
     def _build_agent(self) -> None:
-        """Stand up the P5 LLM brain if possible; otherwise stay in P3 echo mode."""
-        if VoiceAgent is None or SafetyGate is None or RobotClient is None:
+        """Stand up the P5 brain: prefer headless Claude Code (subscription), then
+        the SDK agent (ANTHROPIC_API_KEY), else stay in P3 echo mode."""
+        if ClaudeBrain is None or VoiceAgent is None:
             print("[brain] navbot_voice not importable — echo mode (P3).", flush=True)
             return
-        if not os.environ.get("ANTHROPIC_API_KEY"):
-            print("[brain] no ANTHROPIC_API_KEY — echo mode (P3); set it for voice control.", flush=True)
-            return
+        # 1) Claude Code brain (subscription OAuth, auto-refresh) — the chosen path.
         try:
-            self._robot = RobotClient()
-            self._safety = SafetyGate()
-            self._agent = VoiceAgent(self._robot, self._safety, set_face=self.link.send_face)
-            print(f"[brain] voice control ON (P5) — model {self._agent.model}.", flush=True)
+            self._agent = ClaudeBrain(set_face=self.link.send_face)
+            self._robot = self._agent.robot
+            self._safety = self._agent.safety
+            print("[brain] voice control ON (P5) — headless Claude Code.", flush=True)
+            return
         except Exception as exc:  # noqa: BLE001
-            self._agent = None
-            print(f"[brain] LLM brain init failed ({exc}) — echo mode (P3).", flush=True)
+            print(f"[brain] Claude Code brain unavailable ({exc}).", flush=True)
+        # 2) SDK agent fallback (metered API key).
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            try:
+                from navbot_voice.robot_client import RobotClient
+                from navbot_voice.safety import SafetyGate
+
+                self._robot = RobotClient()
+                self._safety = SafetyGate()
+                self._agent = VoiceAgent(self._robot, self._safety, set_face=self.link.send_face)
+                print(f"[brain] voice control ON (P5) — SDK model {self._agent.model}.", flush=True)
+                return
+            except Exception as exc:  # noqa: BLE001
+                print(f"[brain] SDK agent init failed ({exc}).", flush=True)
+        # 3) echo
+        print("[brain] no LLM brain available — echo mode (P3).", flush=True)
 
     def start(self) -> None:
         import numpy as np
