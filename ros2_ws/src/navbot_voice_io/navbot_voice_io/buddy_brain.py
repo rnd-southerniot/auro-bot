@@ -1,10 +1,17 @@
-"""P3 buddy brain — speech echo loop (no LLM yet).
+"""Buddy brain — wake -> STT -> (P5) Claude tool-use -> drive + TTS reply.
 
 Owns the buddy serial link. On the wake word it collects the AFE-enhanced
 ``AUDIO_MIC`` stream until a short silence, transcribes it with faster-whisper,
-and (for P3) echoes it back through Piper TTS to the buddy speaker — driving the
-face listening -> thinking -> speaking -> idle. The LLM brain replaces the echo
-in P5.
+then:
+
+  * P5 (``ANTHROPIC_API_KEY`` set): hands the transcript to :class:`VoiceAgent`,
+    which plans with Claude and drives the robot through the navbot_web control
+    surface under the :class:`SafetyGate`, then speaks Claude's reply.
+  * fallback (no key): echoes the transcript back (the P3 behaviour), so the
+    voice loop still works without an LLM.
+
+The on-device "stop" word always wins: it fires a serial event that hits
+``/api/stop`` and halts the safety gate immediately, independent of Claude.
 
 Run on the robot (buddy on ttyACM1):
     python3 -m navbot_voice_io.buddy_brain
@@ -19,6 +26,29 @@ import time
 from navbot_voice_io import protocol
 from navbot_voice_io.buddy_link import BuddyLink
 from navbot_voice_io.loopback_tool import detect_port
+
+# The brain (LLM/tools/safety) lives in the sibling navbot_voice package. When
+# run from source (python3 -m navbot_voice_io.buddy_brain) that package isn't on
+# the path; add it so the fast dev loop keeps working without a colcon install.
+try:
+    from navbot_voice.agent import VoiceAgent
+    from navbot_voice.robot_client import RobotClient
+    from navbot_voice.safety import SafetyGate
+except ImportError:  # pragma: no cover - dev convenience
+    import pathlib
+    import sys
+
+    _proj = pathlib.Path(__file__).resolve().parents[2] / "navbot_voice"
+    if _proj.exists():
+        sys.path.insert(0, str(_proj))
+    try:
+        from navbot_voice.agent import VoiceAgent
+        from navbot_voice.robot_client import RobotClient
+        from navbot_voice.safety import SafetyGate
+    except ImportError:
+        VoiceAgent = None  # type: ignore[assignment,misc]
+        RobotClient = None  # type: ignore[assignment,misc]
+        SafetyGate = None  # type: ignore[assignment,misc]
 
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "base.en")
 PIPER_BIN = os.path.expanduser(os.environ.get("PIPER_BIN", "~/piper/piper/piper"))
@@ -40,6 +70,26 @@ class BuddyBrain:
         self._collecting = False
         self._last_audio = 0.0
         self._busy = False
+        self._robot = None
+        self._safety = None
+        self._agent = None
+
+    def _build_agent(self) -> None:
+        """Stand up the P5 LLM brain if possible; otherwise stay in P3 echo mode."""
+        if VoiceAgent is None or SafetyGate is None or RobotClient is None:
+            print("[brain] navbot_voice not importable — echo mode (P3).", flush=True)
+            return
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            print("[brain] no ANTHROPIC_API_KEY — echo mode (P3); set it for voice control.", flush=True)
+            return
+        try:
+            self._robot = RobotClient()
+            self._safety = SafetyGate()
+            self._agent = VoiceAgent(self._robot, self._safety, set_face=self.link.send_face)
+            print(f"[brain] voice control ON (P5) — model {self._agent.model}.", flush=True)
+        except Exception as exc:  # noqa: BLE001
+            self._agent = None
+            print(f"[brain] LLM brain init failed ({exc}) — echo mode (P3).", flush=True)
 
     def start(self) -> None:
         import numpy as np
@@ -53,6 +103,7 @@ class BuddyBrain:
         self.link.open()
         self.link.send_hello("brain")
         self.link.send_face("idle")
+        self._build_agent()
         threading.Thread(target=self._utterance_watch, daemon=True).start()
         print("buddy brain running — say 'Jarvis' then your phrase.", flush=True)
 
@@ -71,6 +122,17 @@ class BuddyBrain:
                     self._collecting = False
                 self.link.send_face("halted")
                 print("[STOP]", flush=True)
+                # On-device stop wins instantly and independently of Claude:
+                # halt the safety gate (aborts any in-flight drive) and hit
+                # /api/stop. Runs on the reader thread; the drive loop polls the
+                # same abort flag and bails.
+                if self._safety is not None:
+                    self._safety.halt()
+                if self._robot is not None:
+                    try:
+                        self._robot.stop()
+                    except Exception:  # noqa: BLE001
+                        pass
         elif f.type == protocol.T_AUDIO_MIC and self._collecting:
             with self._lock:
                 self._buf += f.payload
@@ -100,11 +162,24 @@ class BuddyBrain:
             if not text.strip():
                 self.link.send_face("idle")
                 return
+            if self._agent is not None:
+                reply = self._reply(text)
+            else:
+                reply = "You said: " + text   # P3 echo (no LLM)
+            print(f"reply: {reply!r}", flush=True)
             self.link.send_face("speaking")
-            self._speak("You said: " + text)   # P3 echo; LLM reply lands in P5
+            self._speak(reply)
             self.link.send_face("idle")
         finally:
             self._busy = False
+
+    def _reply(self, text: str) -> str:
+        """Run the P5 LLM brain; degrade gracefully so a brain error never bricks voice."""
+        try:
+            return self._agent.run(text)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[brain] agent error: {exc}", flush=True)
+            return "Sorry, my brain hit a snag, but I can still stop and drive."
 
     def _stt(self, pcm: bytes) -> str:
         audio = self._np.frombuffer(pcm, dtype=self._np.int16).astype(self._np.float32) / 32768.0
