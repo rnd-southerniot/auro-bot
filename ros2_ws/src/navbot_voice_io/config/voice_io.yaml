@@ -1,0 +1,9 @@
+navbot_voice_io:
+  ros__parameters:
+    # The buddy enumerates via its CH343 bridge. Prefer a stable by-id path once
+    # known, e.g. /dev/serial/by-id/usb-...CH343...  (falls back to /dev/ttyACM0).
+    buddy_serial: "/dev/ttyACM0"
+    baud: 1000000
+    ping_period: 2.0
+    # loopback: true  -> echo mic audio back to the speaker (P1 buddy-link-test)
+    loopback: false

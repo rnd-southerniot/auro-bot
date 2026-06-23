@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>navbot_camera</name>
+  <version>0.1.0</version>
+  <description>Pi Camera (CSI) feed via camera_ros, plus a frame-grab helper for the voice brain's vision.</description>
+  <maintainer email="robotics@example.com">robotics</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <!-- camera_ros provides the libcamera-native CSI driver node (apt: ros-jazzy-camera-ros).
+       cv_bridge + opencv are used only by the optional grab-to-JPEG service (lazy-imported). -->
+  <exec_depend>camera_ros</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

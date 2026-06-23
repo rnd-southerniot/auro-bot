@@ -1,0 +1,15 @@
+navbot_voice_agent:
+  ros__parameters:
+    # Control surface (navbot_web HTTP API) the brain wraps.
+    robot_api_base: "http://127.0.0.1:8080"
+    http_timeout: 2.0
+    status_poll_period: 5.0
+    # --- reserved for later phases (not yet read by the P0 skeleton) ---
+    # buddy_serial: "/dev/serial/by-id/usb-...CH343..."
+    # wake_phrase: "hey navbot"
+    # stt_model: "base.en"
+    # tts_voice: "en_US-amy-medium"
+    # max_linear_mps: 0.12
+    # max_angular_rps: 0.6
+    # max_drive_duration_s: 3.0
+    # drive_mode_default: false

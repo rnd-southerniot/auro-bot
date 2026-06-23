@@ -1,0 +1,23 @@
+# ESP32-S3 Voice Buddy — IDF defaults (PlatformIO seeds sdkconfig from this).
+
+# --- Target / flash / PSRAM (N16R8: 16 MB flash, 8 MB octal PSRAM) ---
+CONFIG_IDF_TARGET="esp32s3"
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+
+# --- Partition table (native idf.py; PlatformIO set this via board_build) ---
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+
+# --- Console OFF UART0: that UART is the CH343/Pi link (PROTOCOL.md). ---
+# Keeps the 1 Mbps binary link clean of stray log bytes. Flip to UART for
+# bring-up debugging only (accepting log noise on the link).
+CONFIG_ESP_CONSOLE_NONE=y
+
+# --- FreeRTOS / misc ---
+CONFIG_FREERTOS_HZ=1000
+CONFIG_ESP_TASK_WDT_INIT=n
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
