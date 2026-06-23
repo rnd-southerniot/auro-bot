@@ -44,11 +44,14 @@ static void sr_task(void *arg) {
     cfg->vad_init = true;
     cfg->wakenet_init = true;
     cfg->wakenet_model_name = wn;
+    cfg->wakenet_mode = DET_MODE_90;   // more sensitive detection mode
     cfg->afe_perferred_core = 1;
     afe_config_check(cfg);
     const esp_afe_sr_iface_t *afe = esp_afe_handle_from_config(cfg);
     esp_afe_sr_data_t *afe_data = afe->create_from_config(cfg);
     afe_config_free(cfg);
+    // Lower the wake threshold so a normal-volume "Jarvis" triggers (default ~0.5).
+    if (afe->set_wakenet_threshold) afe->set_wakenet_threshold(afe_data, 1, 0.4f);
 
     // MultiNet command recognizer + register "stop"/"halt".
     esp_mn_iface_t *mnet = esp_mn_handle_from_name(mn);
