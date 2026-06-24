@@ -2,6 +2,19 @@
 
 Pick-up note after the voice-perception + autostart + docs session. Start here.
 
+## Session end (2026-06-24) — both Pis powered off
+
+The session ended with **both the gateway Pi and the robot (`navbot-pi`) shut
+down** cleanly. Nothing is mid-flight; everything is committed + pushed.
+
+**To resume:** power on the gateway Pi and the robot. The robot **autostarts the
+voice appliance** on boot (P7) — no manual launch needed. Then:
+- `ssh navbot-pi` from the gateway; verify with `/navbot:voice-status`
+  (`navbot-bringup`/`web`/`voice` active; `navbot-nav` disabled is expected).
+- For driving/LiDAR: **charge the LiDAR pack first** (it was flat — that's why
+  `/scan` was absent), then power on; put wheels on blocks before any voice drive.
+- Camera (`192.168.68.110`) powers up on its own; check `/navbot:camera-test`.
+
 ## Where we are
 
 The voice subsystem is complete through **P7**. All on `main`, pushed to
