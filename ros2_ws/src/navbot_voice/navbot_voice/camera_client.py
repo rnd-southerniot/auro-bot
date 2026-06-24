@@ -51,11 +51,17 @@ class CameraClient:
             raise ValueError(f"camera did not return a JPEG (got {len(jpeg)} bytes)")
         return jpeg
 
-    def grab(self) -> str:
-        """Fetch a snapshot, save it under save_dir, return the absolute path."""
+    def grab(self, tag: str = "") -> str:
+        """Fetch a snapshot, save it under save_dir, return the absolute path.
+
+        ``tag`` is appended to the filename so rapid successive grabs (e.g. a
+        ``look_around`` sweep firing several within one second) don't collide on
+        the second-resolution timestamp.
+        """
         jpeg = self.snapshot_bytes()
         self.save_dir.mkdir(parents=True, exist_ok=True)
-        path = self.save_dir / f"frame_{time.strftime('%Y%m%d_%H%M%S')}.jpg"
+        suffix = f"_{tag}" if tag else ""
+        path = self.save_dir / f"frame_{time.strftime('%Y%m%d_%H%M%S')}{suffix}.jpg"
         path.write_bytes(jpeg)
         return str(path)
 

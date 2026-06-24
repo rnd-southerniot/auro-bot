@@ -16,6 +16,7 @@ in-flight drive correctly. The Pico is never touched; motion is /api/* only.
 from __future__ import annotations
 
 import json
+import math
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -116,6 +117,106 @@ class RobotTools:
             return "stopped early"
         return f"moved (linear {lin:.2f}, angular {ang:.2f}) for {dur:.1f} s"
 
+    # -- in-place rotation (shared by look_around + turn) --
+    # Angular-only, never translates, so it is exempt from the linear motion
+    # budget; bounded instead by the requested angle (<= one full turn). Still
+    # drive-mode gated, e-stop checked, and abortable by the "stop" word.
+    _ROTATE_RATE = min(SafetyGate.MAX_ANGULAR, 0.5)  # rad/s, shared so headings stay self-consistent
+
+    def _spin(self, radians_to_turn: float) -> bool:
+        """Rotate in place by ``radians_to_turn`` (+ = left/CCW). Returns True if aborted."""
+        if abs(radians_to_turn) < 1e-3:
+            return False
+        ang = math.copysign(self._ROTATE_RATE, radians_to_turn)
+        deadline = time.time() + abs(radians_to_turn) / self._ROTATE_RATE
+        try:
+            while time.time() < deadline:
+                if self.safety.aborted:
+                    return True
+                self.robot.cmd_vel(0.0, ang)  # ~5 Hz holds the web watchdog open
+                time.sleep(0.2)
+        finally:
+            try:
+                self.robot.stop()
+            except Exception:  # noqa: BLE001
+                pass
+        return False
+
+    def look_around(self, steps: Any = 8, target: Any = "") -> str:
+        """Sweep a full 360° in place, grabbing one stationary frame per heading.
+
+        Returns the heading->image-path list for the brain to Read and search;
+        this tool does not judge image content. The robot ends back near its
+        start heading (steps * step-angle == 360°). Pair with ``turn`` to face a
+        target once the brain has found it.
+        """
+        try:
+            status = self.robot.get_status()
+        except Exception:  # noqa: BLE001
+            status = {}
+        ok, reason = self.safety.can_move(status)
+        if not ok:
+            return f"refused to look around: {reason}"
+
+        try:
+            steps = int(steps)
+        except (TypeError, ValueError):
+            steps = 8
+        steps = max(4, min(12, steps))
+        target = str(target or "").strip()
+
+        self.safety.begin_move()
+        step_rad = 2.0 * math.pi / steps
+        frames: list[tuple[int, str]] = []
+        aborted = False
+        for i in range(steps):
+            if self.safety.aborted:
+                aborted = True
+                break
+            self._face("thinking")
+            heading = round(i * 360.0 / steps)
+            try:
+                path = self.camera.grab(tag=f"scan{i:02d}")
+            except Exception as exc:  # noqa: BLE001
+                path = f"(camera error: {exc})"
+            frames.append((heading, path))
+            if self._spin(step_rad):  # rotate to the next heading
+                aborted = True
+                break
+        self._face("idle")
+        if not frames:
+            return "look-around captured no frames"
+        lines = "\n".join(f"  {h:>3} deg -> {p}" for h, p in frames)
+        head = (
+            f"swept {len(frames)} headings"
+            + (f" looking for '{target}'" if target else "")
+            + (" (aborted early)" if aborted else "")
+            + ". Read each frame to find the target, then `turn <degrees>` to face it:\n"
+        )
+        return head + lines
+
+    def turn(self, degrees: Any) -> str:
+        """Rotate in place by a relative angle (+ = left/CCW), to face a target."""
+        try:
+            status = self.robot.get_status()
+        except Exception:  # noqa: BLE001
+            status = {}
+        ok, reason = self.safety.can_move(status)
+        if not ok:
+            return f"refused to turn: {reason}"
+        try:
+            deg = float(degrees)
+        except (TypeError, ValueError):
+            return "turn needs a number of degrees"
+        deg = max(-360.0, min(360.0, deg))
+        self.safety.begin_move()
+        self._face("driving")
+        aborted = self._spin(math.radians(deg))
+        self._face("idle")
+        if aborted:
+            return "stopped early"
+        return f"turned {deg:.0f} degrees"
+
     # -- dispatch by name (shared by the control server and the SDK agent) --
     def dispatch(self, name: str, args: dict[str, Any]) -> str:
         try:
@@ -131,6 +232,10 @@ class RobotTools:
                 return self.set_face(args.get("state", "idle"))
             if name == "look":
                 return self.look()
+            if name == "look_around":
+                return self.look_around(args.get("steps", 8), args.get("target", ""))
+            if name == "turn":
+                return self.turn(args.get("degrees", 0.0))
         except Exception as exc:  # noqa: BLE001
             return f"error: {exc}"
         return f"unknown tool: {name}"
