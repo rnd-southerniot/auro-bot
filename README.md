@@ -88,14 +88,16 @@ full operating guide.
 | P3 | STT + TTS conversational loop | ✅ on hardware |
 | P5 | LLM tool-use + gated voice teleop | ✅ on blocks 2026-06-24 (odom +0.18 m, auto-stop) |
 | P6 | XIAO Sense camera + vision | ✅ live grab + status validated 2026-06-24 |
-| P7 | systemd autostart | ⏳ authored + syntax-checked; **robot enable/boot test pending** |
+| P7 | systemd autostart | ✅ boot-validated on the robot 2026-06-24 (base+web+voice+camera up on power-on; LiDAR caveat below) |
 
 **Base** (drive/odom/LiDAR/IMU/SLAM): validated through the v1.2.0 freeze and the
 2026-06 home re-assembly bring-up — details in
 [docs/project-status.md](docs/project-status.md).
 
 **Honest gaps:** Nav2/AMCL needs a fresh home SLAM map (the `office_lab` maps are
-stale after the home move), so `navbot-nav` ships **disabled**. The on-device
+stale after the home move), so `navbot-nav` ships **disabled**. The **LiDAR**
+currently times out at boot (`/scan` absent) — a known hardware/power issue, not
+autostart; see the [autostart validation record](docs/validation/records/2026-06-24-autostart-validation.md). The on-device
 "stop" word only listens in the ~5 s window after a wake (see the safety note in
 [CLAUDE.md](CLAUDE.md)). The hardware e-stop always works.
 

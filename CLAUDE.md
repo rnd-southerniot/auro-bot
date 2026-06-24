@@ -26,7 +26,9 @@ Active development is on **`main`** (linear phase commits `P0…P7`). This repo 
 ## Phase status (voice subsystem)
 
 P0–P3 and P5 teleop are **hardware-validated**; P6 camera validated this June;
-P7 autostart is authored but **not yet enabled/booted on the robot**.
+**P7 autostart is boot-validated on the robot (2026-06-24)** — it powers on into
+the appliance (base+web+voice+camera), with the LiDAR still timing out (`/scan`
+absent — a known hardware issue, not autostart).
 
 - **P0–P1** brain skeleton + buddy firmware (link validated)
 - **P2** on-device wake word + AFE + offline "stop" (esp-sr)
@@ -34,7 +36,8 @@ P7 autostart is authored but **not yet enabled/booted on the robot**.
 - **P5** LLM tool-use + gated voice teleop (headless Claude Code, subscription auth);
   validated on blocks 2026-06-24 ("Jarvis, drive forward 2 s" → odom +0.18 m, auto-stop)
 - **P6** perception — XIAO Sense Wi-Fi camera + `look()`/`describe_scene()` in both brains
-- **P7** autostart — systemd stack (base+LiDAR+IMU/EKF → web → voice)
+- **P7** autostart — systemd stack (base+LiDAR+IMU/EKF → web → voice); **boots
+  hands-free on the robot, validated 2026-06-24** ([record](docs/validation/records/2026-06-24-autostart-validation.md))
 
 > ⚠️ **Known safety gap (P5→fix):** the on-device "stop" word only fires inside
 > the firmware's ~5 s post-wake MultiNet window — a "stop" shouted *during* a

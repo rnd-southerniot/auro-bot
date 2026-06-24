@@ -13,18 +13,19 @@ gateway's `~/.git-credentials`, so `git push`/`pull` just work).
 | P0–P3 | brain skeleton, buddy fw, wake/STT/TTS loop | ✅ on hardware |
 | P5 | Claude gated voice teleop (headless, subscription) | ✅ on blocks 2026-06-24 (odom +0.18 m) |
 | P6 | XIAO ESP32-S3 Sense Wi-Fi camera + `look()` | ✅ live grab + status validated |
-| P7 | systemd autostart stack | ⏳ **authored, not enabled/booted on the robot** |
+| P7 | systemd autostart stack | ✅ **boot-validated on the robot 2026-06-24** (deployed + rebooted) |
 
-Key recent commits: `75cfe37` P6, `9f68405` P7, `30c2a9b` docs.
+Key recent commits: `75cfe37` P6, `9f68405` P7, `30c2a9b` docs; deploy fixes
+`0760be7` (overlay path) + `6c4f9fe` (navbotctl exec bit). Record:
+[validation/records/2026-06-24-autostart-validation.md](../validation/records/2026-06-24-autostart-validation.md).
 
 ## Open follow-ups (priority order)
 
-1. **Validate P7 autostart on the robot** (`ssh navbot-pi`). Run
-   `sudo ./scripts/install_autostart.sh --now`, **edit `/etc/navbot/navbot.env`**
-   (ROS sourcing, sllidar overlay path, claude bin, Whisper/Piper paths), reboot,
-   and confirm via `/navbot:voice-status` + `journalctl -u navbot-voice.service -f`
-   that base→web→voice come up and "Jarvis, what do you see?" works. This is the
-   one piece authored-but-unproven. See [[voice-autostart]] memory.
+1. **LiDAR times out at boot** — `sllidar_node` dies with
+   `SL_RESULT_OPERATION_TIMEOUT` (exit 255), so `/scan` is absent under autostart.
+   Known hardware class (power / CP2102 / warmup), not a P7 bug. Check the LiDAR
+   rail (`/navbot:lidar-voltage`) / use the warmup launch, then re-test `/scan`.
+   Voice + camera + base + IMU/EKF are unaffected; Nav2 is disabled anyway.
 2. **Capture a fresh home SLAM map** → unblocks `navbot-nav` (Nav2/AMCL is
    installed but disabled; `office_lab` maps are stale after the home move). Then
    `sudo systemctl enable --now navbot-nav.service`.
