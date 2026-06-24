@@ -42,7 +42,14 @@ absent — a known hardware issue, not autostart).
 > ⚠️ **Known safety gap (P5→fix):** the on-device "stop" word only fires inside
 > the firmware's ~5 s post-wake MultiNet window — a "stop" shouted *during* a
 > later Claude-initiated drive isn't heard. Motion stays bounded by the clamps
-> (≤3 s, ≤0.12 m/s) + the 0.5 s cmd-vel timeout. The hardware **e-stop** always works.
+> (≤3 s, ≤0.12 m/s per call) + a cumulative **≤6 s/episode** motion budget
+> + the 0.5 s cmd-vel timeout. The hardware **e-stop** always works.
+>
+> The per-episode budget was added 2026-06-25 after a live test showed the brain
+> would satisfy "drive for 40 seconds" by *chaining* ~11 clamped 3 s drives
+> (~3.9 m) — the per-call clamp alone did **not** bound total motion. `SafetyGate`
+> now caps cumulative commanded drive-time per wake-episode
+> ([record](docs/validation/records/2026-06-25-voice-motion-budget.md)).
 
 ## Hardware quick reference
 

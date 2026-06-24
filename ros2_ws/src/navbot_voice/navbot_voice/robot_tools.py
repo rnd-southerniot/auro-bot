@@ -88,6 +88,9 @@ class RobotTools:
             return f"refused to move: {reason}"
 
         lin, ang, dur = self.safety.clamp(linear, angular, duration)
+        dur, budget_reason = self.safety.reserve_motion(dur)
+        if dur <= 0.0:
+            return f"refused to move: {budget_reason}"
         self.safety.begin_move()
         self._face("driving")
         aborted = False
