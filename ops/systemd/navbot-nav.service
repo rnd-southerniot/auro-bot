@@ -1,0 +1,27 @@
+[Unit]
+Description=navbot map-based Nav2 stack (OPTIONAL — needs a saved home map)
+Documentation=file:///home/arif/projects/claude-navbot/docs/operations/autostart.md
+After=navbot-bringup.service
+Requires=navbot-bringup.service
+PartOf=navbot.target
+
+# NOT enabled by default. Nav2/AMCL needs a fresh home SLAM map (see
+# docs/project-status.md — the office_lab maps are stale after the home move).
+# Once maps/<home>.{pgm,yaml} exists and navigation.launch.py points at it:
+#   sudo systemctl enable --now navbot-nav.service
+
+[Service]
+Type=simple
+User=arif
+Group=arif
+SupplementaryGroups=dialout
+EnvironmentFile=/etc/navbot/navbot.env
+# __REPO_DIR__ is substituted by scripts/install_autostart.sh at install time.
+ExecStart=__REPO_DIR__/scripts/navbot_service.sh nav
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=20
+KillMode=mixed
+
+[Install]
+WantedBy=navbot.target

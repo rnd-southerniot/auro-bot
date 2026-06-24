@@ -1,0 +1,23 @@
+[Unit]
+Description=navbot voice brain (buddy link + Whisper STT + Claude brain + Piper TTS)
+Documentation=file:///home/arif/projects/claude-navbot/docs/operations/autostart.md
+After=navbot-web.service
+Requires=navbot-web.service
+PartOf=navbot.target
+
+[Service]
+Type=simple
+User=arif
+Group=arif
+# Buddy CH343 serial (ttyACM*) + speaker/mic:
+SupplementaryGroups=dialout audio
+EnvironmentFile=/etc/navbot/navbot.env
+# __REPO_DIR__ is substituted by scripts/install_autostart.sh at install time.
+ExecStart=__REPO_DIR__/scripts/navbot_service.sh voice
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+KillMode=mixed
+
+[Install]
+WantedBy=navbot.target

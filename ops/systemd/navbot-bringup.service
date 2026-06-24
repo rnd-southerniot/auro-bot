@@ -1,0 +1,24 @@
+[Unit]
+Description=navbot full sensing bringup (base serial bridge + LiDAR + IMU + EKF)
+Documentation=file:///home/arif/projects/claude-navbot/docs/operations/autostart.md
+After=network-online.target
+Wants=network-online.target
+PartOf=navbot.target
+
+[Service]
+Type=simple
+User=arif
+Group=arif
+# Serial (Pico, LiDAR CP2102) + audio device access:
+SupplementaryGroups=dialout audio
+EnvironmentFile=/etc/navbot/navbot.env
+# __REPO_DIR__ is substituted by scripts/install_autostart.sh at install time.
+ExecStart=__REPO_DIR__/scripts/navbot_service.sh bringup
+Restart=on-failure
+RestartSec=5
+# Give the ROS launch + nodes time to shut down cleanly on stop:
+TimeoutStopSec=20
+KillMode=mixed
+
+[Install]
+WantedBy=navbot.target

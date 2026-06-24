@@ -1,0 +1,10 @@
+[Unit]
+Description=navbot voice appliance (full sensing stack + web + voice brain)
+Documentation=file:///home/arif/projects/claude-navbot/docs/operations/autostart.md
+# Pull in the appliance services. navbot-nav.service is intentionally NOT wanted
+# here (it needs a home map); enable it separately when ready.
+Wants=navbot-bringup.service navbot-web.service navbot-voice.service
+After=navbot-bringup.service navbot-web.service navbot-voice.service
+
+[Install]
+WantedBy=multi-user.target

@@ -36,6 +36,14 @@ serving JPEG over HTTP — not a CSI Pi-camera. The brain reaches it with
 The `navbot_camera` package exposes the same camera to ROS
 (`/camera/grab_frame`, `/camera/status`).
 
+## P7 — autostart (hands-free on boot)
+
+The whole appliance (sensing bringup → `navbot_web` → this voice loop) can boot
+automatically via a systemd stack — see
+[docs/operations/autostart.md](../../../docs/operations/autostart.md). Install on
+the robot with `sudo ./scripts/install_autostart.sh`. Drive mode stays OFF at
+boot; the "stop" word and e-stop always override.
+
 ## Run (P0 gate)
 
 With the web console up on the robot (`./scripts/launch_web_console.sh`):

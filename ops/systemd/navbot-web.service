@@ -1,0 +1,21 @@
+[Unit]
+Description=navbot web control surface (/api/cmd_vel, /api/stop, /api/status)
+Documentation=file:///home/arif/projects/claude-navbot/docs/operations/autostart.md
+After=navbot-bringup.service
+Requires=navbot-bringup.service
+PartOf=navbot.target
+
+[Service]
+Type=simple
+User=arif
+Group=arif
+EnvironmentFile=/etc/navbot/navbot.env
+# __REPO_DIR__ is substituted by scripts/install_autostart.sh at install time.
+ExecStart=__REPO_DIR__/scripts/navbot_service.sh web
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+KillMode=mixed
+
+[Install]
+WantedBy=navbot.target
