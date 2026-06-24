@@ -24,7 +24,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # --- config (overridable via the EnvironmentFile / env) ---
 ROS_SETUP="${ROS_SETUP:-/opt/ros/jazzy/setup.bash}"
-EXTERNAL_WORKSPACE_SETUP="${EXTERNAL_WORKSPACE_SETUP:-/home/arif/ros2_ws/install/setup.bash}"
+# Base + LiDAR overlay (sllidar lives in the claude-navbot workspace on the robot):
+EXTERNAL_WORKSPACE_SETUP="${EXTERNAL_WORKSPACE_SETUP:-/home/arif/projects/claude-navbot/ros2_ws/install/setup.bash}"
 WORKSPACE_SETUP="${WORKSPACE_SETUP:-${ROOT_DIR}/ros2_ws/install/setup.bash}"
 WEB_PORT="${NAVBOT_WEB_PORT:-8080}"
 CAPTURE_ROOT="${NAVBOT_CAPTURE_ROOT:-${ROOT_DIR}/captures}"
