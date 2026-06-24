@@ -35,11 +35,11 @@ Fresh boot (`uptime` 0 min). All three core units `active` + `enabled`;
 
 **LiDAR times out on boot:** `sllidar_node` launches from the correct overlay with
 the right params, then dies with `SL_RESULT_OPERATION_TIMEOUT` (exit 255), so
-`/scan` is absent (`scan_alive=False`). This is the project's known LiDAR class
-(power / CP2102 / warmup — see [RUNBOOK troubleshooting](../../RUNBOOK.md)), **not**
-a P7 problem. Base + IMU + EKF + web + voice + camera are unaffected; Nav2 is
-disabled anyway. Follow-up: check the LiDAR rail (`/navbot:lidar-voltage`) / use the
-warmup launch, then re-test `/scan`.
+`/scan` is absent (`scan_alive=False`). **Root cause: the LiDAR battery was down**
+— a common, expected blocker (the C1 has its own power feed), **not** a P7 problem
+and **not worth chasing**. `/scan` returns once the LiDAR pack is charged; just
+restart `navbot-bringup` (or reboot) afterwards. Base + IMU + EKF + web + voice +
+camera are unaffected; Nav2 is disabled anyway.
 
 Also still present: `motor_v≈0.07` (GP27 divider disconnected, known) and the
 `CDRIVE …` serial_bridge warnings flooding the journal (known unparsed telemetry).

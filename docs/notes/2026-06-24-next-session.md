@@ -21,11 +21,11 @@ Key recent commits: `75cfe37` P6, `9f68405` P7, `30c2a9b` docs; deploy fixes
 
 ## Open follow-ups (priority order)
 
-1. **LiDAR times out at boot** — `sllidar_node` dies with
-   `SL_RESULT_OPERATION_TIMEOUT` (exit 255), so `/scan` is absent under autostart.
-   Known hardware class (power / CP2102 / warmup), not a P7 bug. Check the LiDAR
-   rail (`/navbot:lidar-voltage`) / use the warmup launch, then re-test `/scan`.
-   Voice + camera + base + IMU/EKF are unaffected; Nav2 is disabled anyway.
+1. **LiDAR `/scan` absent at boot — known: LiDAR battery down.** `sllidar_node`
+   dies with `SL_RESULT_OPERATION_TIMEOUT` (exit 255). Confirmed a flat LiDAR pack
+   — a common, expected blocker, **not** a P7 bug and not being chased. Charge the
+   LiDAR pack, then restart `navbot-bringup` (or reboot). Voice + camera + base +
+   IMU/EKF are unaffected; Nav2 is disabled anyway.
 2. **Capture a fresh home SLAM map** → unblocks `navbot-nav` (Nav2/AMCL is
    installed but disabled; `office_lab` maps are stale after the home move). Then
    `sudo systemctl enable --now navbot-nav.service`.
