@@ -1,15 +1,13 @@
-# camera_ros (libcamera) parameters for the Pi Camera Module 3 on the Pi 5.
-# Applied to the upstream camera_ros node; tune once the module is connected.
-camera:
-  ros__parameters:
-    width: 1280
-    height: 720
-    format: "RGB888"
-    # camera: 0          # CSI camera index if multiple
-    # frame_id: "camera_link"
-
+# navbot_camera — XIAO ESP32-S3 Sense networked camera (P6 perception).
+# The camera is a Wi-Fi board (firmware/xiao_esp32s3_sense_cam) serving JPEG over
+# HTTP; the Pi just fetches /snapshot. Set camera_url to the XIAO's DHCP address
+# on the robot's AP (measured 192.168.68.110 on AP "Auro", confirmed 2026-06-24 — update if
+# the lease changes, or use an mDNS/reserved address).
 navbot_camera_frame_grabber:
   ros__parameters:
-    image_topic: "/camera/image_raw"
-    status_period: 1.0
+    camera_url: "http://192.168.68.110"   # control plane (:80); /snapshot + /status
+    snapshot_path: "/snapshot"
+    status_path: "/status"
+    http_timeout: 4.0
+    status_period: 2.0
     # save_dir defaults to ~/navbot_captures/frames

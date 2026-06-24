@@ -4,6 +4,10 @@ navbot_voice_agent:
     robot_api_base: "http://127.0.0.1:8080"
     http_timeout: 2.0
     status_poll_period: 5.0
+    # Camera (P6): XIAO ESP32-S3 Sense networked camera serving JPEG over HTTP.
+    # The brain's CameraClient reads NAVBOT_CAMERA_URL (env) — point it at the board's
+    # address on the robot AP. Default http://192.168.68.110 (AP "Auro", confirmed 2026-06-24).
+    # camera_url: "http://192.168.68.110"
     # --- reserved for later phases (not yet read by the P0 skeleton) ---
     # buddy_serial: "/dev/serial/by-id/usb-...CH343..."
     # wake_phrase: "hey navbot"

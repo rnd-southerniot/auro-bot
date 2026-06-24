@@ -41,16 +41,20 @@ SYSTEM_PROMPT = (
     "                                 # duration<=3) and the robot auto-stops when done.\n"
     "  navbotctl stop                 # stop now and leave drive mode\n"
     "  navbotctl status               # controller / e-stop / odometry / motor voltage / lidar\n"
-    "  navbotctl face <state>         # idle|listening|thinking|speaking|driving|halted|low_battery\n\n"
+    "  navbotctl face <state>         # idle|listening|thinking|speaking|driving|halted|low_battery\n"
+    "  navbotctl look                 # grab a photo from the robot's camera; prints the saved\n"
+    "                                 # JPEG path. Then use the Read tool on that path to SEE it.\n\n"
     "Rules:\n"
+    "- To see / look / 'what do you see' / describe surroundings: run `navbotctl look`, then Read "
+    "the JPEG path it prints, and answer from the image in one spoken sentence.\n"
     "- To move: first `navbotctl drive-mode on`, then `navbotctl drive ...`. Move conservatively "
     "(~0.10 m/s, ~0.5 rad/s, 1-2 s).\n"
     "- If the command output says it refused to move, tell the user why in your reply.\n"
     "- If asked to stop, run `navbotctl stop`. The user can also just say 'stop', which hardware-"
     "stops the robot instantly — never argue with a stop.\n"
     "- Use `navbotctl status` for status/battery/e-stop questions.\n"
-    "- You have no camera yet and cannot navigate to named places — say so honestly in one sentence "
-    "rather than pretending."
+    "- You can see through the camera (`navbotctl look`) but cannot navigate to named places — say "
+    "so honestly in one sentence rather than pretending."
 )
 
 
@@ -75,7 +79,7 @@ class ClaudeBrain:
             self._bin, "-p", transcript,
             "--output-format", "text",
             "--append-system-prompt", SYSTEM_PROMPT,
-            "--allowedTools", "Bash(navbotctl:*)",
+            "--allowedTools", "Bash(navbotctl:*)", "Read",
             "--max-turns", str(MAX_TURNS),
         ]
         try:

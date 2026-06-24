@@ -1,0 +1,39 @@
+# ESP-IDF
+firmware/build/
+firmware/sdkconfig
+firmware/sdkconfig.old
+firmware/managed_components/
+firmware/dependencies.lock
+firmware/.cache/
+
+# Backups
+backup-*.bin
+*.bak
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets/
+
+# macOS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Per-machine Claude Code settings
+.claude/settings.local.json
+
+# Python (host tools)
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Build/test output
+*.log
+*.csv.tmp

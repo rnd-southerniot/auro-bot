@@ -1,24 +1,28 @@
-"""navbot_camera frame grabber.
+"""navbot_camera networked-frame grabber (P6 perception).
 
-Subscribes to the camera stream (published by the upstream ``camera_ros`` node),
-tracks liveness/fps, publishes a JSON ``/camera/status`` (same idiom as
-``navbot_power``'s INA238 status), and offers a ``/camera/grab_frame``
-(``std_srvs/Trigger``) service that saves the latest frame to a JPEG and returns
-its path — used by the voice brain's ``look()`` / ``describe_scene()`` tool.
+The robot's **eyes** are a Seeed **XIAO ESP32-S3 Sense** on Wi-Fi serving JPEG
+over HTTP (``firmware/xiao_esp32s3_sense_cam``) — not a CSI Pi-camera. This node
+is the ROS-side face of that camera: it polls the XIAO's ``/status`` for liveness
+and republishes a JSON ``/camera/status`` (same idiom as ``navbot_power``'s INA238
+status), and offers a ``/camera/grab_frame`` (``std_srvs/Trigger``) service that
+fetches a fresh ``/snapshot`` JPEG, saves it, and returns the path — used by the
+voice brain's ``look()`` / ``describe_scene()`` tool.
 
-cv_bridge/OpenCV are imported lazily so the node builds and runs (status-only)
-even on a machine without them; grab_frame degrades gracefully if absent.
+Because the XIAO already serves compressed JPEG, there is **no decode step** here:
+no ``camera_ros``, ``cv_bridge``, or OpenCV. We just relay bytes. Stdlib ``urllib``
+only.
 """
 from __future__ import annotations
 
 import json
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
-from sensor_msgs.msg import Image
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
 
@@ -27,82 +31,89 @@ class FrameGrabber(Node):
     def __init__(self) -> None:
         super().__init__("navbot_camera_frame_grabber")
 
-        self.declare_parameter("image_topic", "/camera/image_raw")
-        self.declare_parameter("status_period", 1.0)
+        # XIAO ESP32-S3 Sense base URL (control plane, :80). The MJPEG stream
+        # lives on :81/stream but look() only needs a still, so we use /snapshot.
+        self.declare_parameter("camera_url", "http://192.168.68.110")
+        self.declare_parameter("snapshot_path", "/snapshot")
+        self.declare_parameter("status_path", "/status")
+        self.declare_parameter("http_timeout", 4.0)
+        self.declare_parameter("status_period", 2.0)
         self.declare_parameter("save_dir", str(Path.home() / "navbot_captures" / "frames"))
 
-        self.image_topic = str(self.get_parameter("image_topic").value)
+        self.base_url = str(self.get_parameter("camera_url").value).rstrip("/")
+        self.snapshot_path = str(self.get_parameter("snapshot_path").value)
+        self.status_path = str(self.get_parameter("status_path").value)
+        self.timeout = float(self.get_parameter("http_timeout").value)
         self.save_dir = Path(str(self.get_parameter("save_dir").value)).expanduser()
         period = float(self.get_parameter("status_period").value)
 
-        self._last_msg: Image | None = None
-        self._last_stamp: float | None = None
-        self._frame_count = 0
-        self._fps_window_start = time.monotonic()
-        self._fps = 0.0
-        self._width = 0
-        self._height = 0
-        self._encoding = ""
+        self._last_ok: float | None = None
+        self._last_cam_status: dict = {}
+        self._last_error = ""
 
-        self.create_subscription(Image, self.image_topic, self._image_cb, 10)
         self._status_pub = self.create_publisher(String, "/camera/status", 10)
         self.create_service(Trigger, "/camera/grab_frame", self._grab_cb)
         self.create_timer(period, self._publish_status)
 
         self.get_logger().info(
-            f"navbot_camera frame_grabber on {self.image_topic} "
-            f"(grab service /camera/grab_frame, save_dir {self.save_dir})"
+            f"navbot_camera frame_grabber -> XIAO camera at {self.base_url} "
+            f"(snapshot {self.snapshot_path}, grab service /camera/grab_frame, "
+            f"save_dir {self.save_dir})"
         )
 
-    def _image_cb(self, msg: Image) -> None:
-        self._last_msg = msg
-        self._last_stamp = time.monotonic()
-        self._frame_count += 1
-        self._width, self._height, self._encoding = msg.width, msg.height, msg.encoding
-        now = time.monotonic()
-        elapsed = now - self._fps_window_start
-        if elapsed >= 1.0:
-            self._fps = self._frame_count / elapsed
-            self._frame_count = 0
-            self._fps_window_start = now
+    # ---- HTTP helpers (stdlib only) ----
+    def _get(self, path: str) -> bytes:
+        url = f"{self.base_url}{path}"
+        with urllib.request.urlopen(url, timeout=self.timeout) as resp:
+            return resp.read()
+
+    def _poll_camera_status(self) -> None:
+        try:
+            raw = self._get(self.status_path)
+            self._last_cam_status = json.loads(raw.decode("utf-8")) if raw else {}
+            self._last_ok = time.monotonic()
+            self._last_error = ""
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            self._last_error = str(exc)
 
     def _alive(self) -> bool:
-        return self._last_stamp is not None and (time.monotonic() - self._last_stamp) < 2.0
+        return self._last_ok is not None and (time.monotonic() - self._last_ok) < 5.0
 
     def _publish_status(self) -> None:
+        self._poll_camera_status()
+        cam = self._last_cam_status
         payload = {
             "available": self._alive(),
-            "topic": self.image_topic,
-            "fps": round(self._fps, 2),
-            "width": self._width,
-            "height": self._height,
-            "encoding": self._encoding,
-            "message": "streaming" if self._alive() else "no frames",
+            "url": self.base_url,
+            "fps": cam.get("fps"),
+            "framesize": cam.get("framesize"),
+            "motion": cam.get("motion"),
+            "rssi_dbm": cam.get("rssi_dbm"),
+            "uptime_s": cam.get("uptime_s"),
+            "message": "online" if self._alive() else (self._last_error or "unreachable"),
         }
         self._status_pub.publish(String(data=json.dumps(payload)))
 
     def _grab_cb(self, request: Trigger.Request, response: Trigger.Response) -> Trigger.Response:
-        if self._last_msg is None:
-            response.success = False
-            response.message = "no frame received yet"
-            return response
         try:
-            from cv_bridge import CvBridge  # lazy
-            import cv2  # lazy
-        except Exception as exc:  # pragma: no cover - env dependent
+            jpeg = self._get(self.snapshot_path)
+        except (urllib.error.URLError, OSError) as exc:
             response.success = False
-            response.message = f"cv_bridge/opencv unavailable: {exc}"
+            response.message = f"snapshot fetch failed ({self.base_url}{self.snapshot_path}): {exc}"
+            return response
+        if not (jpeg[:3] == b"\xff\xd8\xff"):  # JFIF SOI marker
+            response.success = False
+            response.message = f"snapshot was not a JPEG (got {len(jpeg)} bytes)"
             return response
         try:
             self.save_dir.mkdir(parents=True, exist_ok=True)
-            frame = CvBridge().imgmsg_to_cv2(self._last_msg, desired_encoding="bgr8")
             path = self.save_dir / f"frame_{time.strftime('%Y%m%d_%H%M%S')}.jpg"
-            cv2.imwrite(str(path), frame)
+            path.write_bytes(jpeg)
             response.success = True
             response.message = str(path)
-        except Exception as exc:  # pragma: no cover - runtime path
+        except OSError as exc:
             response.success = False
-            response.message = f"grab failed: {exc}"
+            response.message = f"save failed: {exc}"
         return response
 
 

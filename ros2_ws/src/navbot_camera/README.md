@@ -1,27 +1,43 @@
 # navbot_camera
 
-The robot's **eyes**: the Pi Camera Module 3 (CSI) feed plus a frame-grab helper
-the voice brain (`navbot_voice`) uses for `look()` / `describe_scene()`.
+The robot's **eyes**: a Seeed **XIAO ESP32-S3 Sense** Wi-Fi camera board plus a
+frame-grab helper the voice brain (`navbot_voice`) uses for `look()` /
+`describe_scene()`.
 
-- **Driver:** the upstream `camera_ros` node (libcamera-native — correct for the
-  Pi 5; `v4l2_camera` is fragile there). Install on the robot Pi with
-  `sudo apt install ros-jazzy-camera-ros`.
-- **`frame_grabber.py`** (this package): subscribes to `/camera/image_raw`, tracks
-  fps/liveness, publishes JSON `/camera/status`, and serves
-  `/camera/grab_frame` (`std_srvs/Trigger`) — saves the latest frame to a JPEG and
-  returns its path (cv_bridge/OpenCV lazy-imported).
+The camera is **not** a CSI Pi-camera — it's the ESP32-S3 Sense firmware in
+[`firmware/xiao_esp32s3_sense_cam`](../../../firmware/xiao_esp32s3_sense_cam),
+which joins the robot's Wi-Fi (AP `Auro`) and serves JPEG over HTTP:
 
-## Status: scaffolded; live camera-test deferred
+- `GET <camera_url>/snapshot` — single JPEG (control plane, `:80`)
+- `GET <camera_url>:81/stream` — live MJPEG (not used by `look()`)
+- `GET <camera_url>/status` — JSON health (`fps`, `motion`, `rssi_dbm`, `uptime_s`, …)
 
-Per the project decisions, the Pi Camera Module 3 isn't connected yet, so the
-`/navbot:camera-test` live validation is deferred. The package builds and
-`frame_grabber` runs status-only without a camera.
+Because the board already emits compressed JPEG, the Pi side does **no** image
+decode: there is no `camera_ros`, `cv_bridge`, or OpenCV dependency — just an HTTP
+relay.
+
+- **`frame_grabber.py`** (this package): polls the XIAO `/status` for liveness,
+  publishes JSON `/camera/status` (same idiom as `navbot_power`'s INA238 status),
+  and serves `/camera/grab_frame` (`std_srvs/Trigger`) — fetches a fresh
+  `/snapshot`, saves the JPEG, and returns its path.
+
+## Configure the board address
+
+The XIAO takes a DHCP lease on the robot's AP. Set `camera_url` in
+[`config/camera.yaml`](config/camera.yaml) (confirmed `192.168.68.110` on
+2026-06-24), or override at launch.
 
 ## Run
 
 ```bash
-# Full (needs camera_ros + a connected CSI module):
 ros2 launch navbot_camera camera.launch.py
-# Grabber only (no driver/hardware):
-ros2 launch navbot_camera camera.launch.py use_camera_driver:=false
+# or point at a different board address:
+ros2 launch navbot_camera camera.launch.py camera_url:=http://192.168.68.110
+```
+
+Quick check the board directly (no ROS):
+
+```bash
+curl -s http://192.168.68.110/status
+curl -s http://192.168.68.110/snapshot -o frame.jpg   # valid JFIF JPEG
 ```

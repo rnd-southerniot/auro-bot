@@ -19,6 +19,23 @@ Currently this package only stands up the node and the control-surface link:
 No audio, LLM, or motion yet — those land in P1–P6 (buddy firmware, wake/STT,
 safety, gated teleop, perception, autostart).
 
+## P6 — perception (camera/vision)
+
+The robot's eyes are a **XIAO ESP32-S3 Sense** Wi-Fi camera
+([`firmware/xiao_esp32s3_sense_cam`](../../../firmware/xiao_esp32s3_sense_cam)),
+serving JPEG over HTTP — not a CSI Pi-camera. The brain reaches it with
+[`camera_client.py`](navbot_voice/camera_client.py) (`NAVBOT_CAMERA_URL`, default
+`http://192.168.68.110`):
+
+- **Headless brain** (`claude_brain.py`, subscription auth): `navbotctl look`
+  grabs a frame and prints the JPEG path; the `Read` tool (now allowed) lets
+  multimodal Claude Code see it — no API key, no metered vision call.
+- **SDK brain** (`agent.py`): the `look` tool sends the JPEG to a vision model
+  (`NAVBOT_VISION_MODEL`, default `claude-sonnet-4-6`) and relays the description.
+
+The `navbot_camera` package exposes the same camera to ROS
+(`/camera/grab_frame`, `/camera/status`).
+
 ## Run (P0 gate)
 
 With the web console up on the robot (`./scripts/launch_web_console.sh`):

@@ -1,10 +1,11 @@
 """Robot tool executor + localhost control server (P5).
 
 ``RobotTools`` is the single place motion actually happens: it maps the small
-tool set (set_drive_mode / drive / stop / get_status / set_face) onto the
-navbot_web control surface (/api/*) under the :class:`SafetyGate`, and onto the
-buddy face via a callback. It is brain-agnostic — driven by either the Claude
-Code brain (over the local control server below) or the in-process SDK agent.
+tool set (set_drive_mode / drive / stop / get_status / set_face / look) onto the
+navbot_web control surface (/api/*) under the :class:`SafetyGate`, the buddy face
+via a callback, and the XIAO camera via :class:`CameraClient` (look). It is
+brain-agnostic — driven by either the Claude Code brain (over the local control
+server below) or the in-process SDK agent.
 
 ``serve_tools`` exposes those methods over a loopback HTTP server so a *separate*
 process (the ``navbotctl`` CLI invoked by headless ``claude -p``) can call them
@@ -20,6 +21,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Callable
 
+from navbot_voice.camera_client import CameraClient
 from navbot_voice.robot_client import RobotClient
 from navbot_voice.safety import SafetyGate
 
@@ -32,10 +34,12 @@ class RobotTools:
         robot: RobotClient,
         safety: SafetyGate,
         set_face: Callable[[str], None] | None = None,
+        camera: CameraClient | None = None,
     ) -> None:
         self.robot = robot
         self.safety = safety
         self._face = set_face or (lambda _state: None)
+        self.camera = camera or CameraClient()
 
     def set_drive_mode(self, enabled: bool) -> str:
         self.safety.set_drive_mode(bool(enabled))
@@ -62,6 +66,17 @@ class RobotTools:
             return f"unknown face state: {state}"
         self._face(state)
         return "ok"
+
+    def look(self) -> str:
+        """Grab a fresh camera frame; return the saved JPEG path (for the brain to read)."""
+        self._face("thinking")
+        try:
+            path = self.camera.grab()
+        except Exception as exc:  # noqa: BLE001
+            return f"camera unavailable: {exc}"
+        finally:
+            self._face("idle")
+        return f"saved camera frame to {path}"
 
     def drive(self, linear: Any, angular: Any, duration: Any) -> str:
         try:
@@ -111,6 +126,8 @@ class RobotTools:
                 return self.get_status()
             if name == "set_face":
                 return self.set_face(args.get("state", "idle"))
+            if name == "look":
+                return self.look()
         except Exception as exc:  # noqa: BLE001
             return f"error: {exc}"
         return f"unknown tool: {name}"

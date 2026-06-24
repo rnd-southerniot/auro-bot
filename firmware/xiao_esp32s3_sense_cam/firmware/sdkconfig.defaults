@@ -1,0 +1,38 @@
+# Defaults for XIAO ESP32-S3 Sense (N8R8: 8 MB QIO flash, 8 MB Octal PSRAM)
+# Project-specific overrides only. Leave everything else at IDF defaults.
+
+# --- Target ---
+CONFIG_IDF_TARGET="esp32s3"
+
+# --- Flash ---
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+
+# --- PSRAM (8 MB Octal @ 80 MHz, AP_3v3 die) ---
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_SPIRAM_USE_MALLOC=y
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384
+CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
+
+# --- CPU ---
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+
+# --- Console: native USB-Serial/JTAG (no UART bridge on this board) ---
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
+# --- Partition table (single app, large = fits 8 MB device) ---
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# --- Logging ---
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_BOOTLOADER_LOG_LEVEL_INFO=y
+
+# --- lwIP socket pool: default 10 is too tight for parallel browser
+#     connections (stream + polling) plus MQTT plus background curl.
+#     Bump so esp_http_server can serve more concurrent clients. ---
+CONFIG_LWIP_MAX_SOCKETS=16
+
+# --- Watchdog: keep IDF defaults (Task WDT 5 s on both cores) ---

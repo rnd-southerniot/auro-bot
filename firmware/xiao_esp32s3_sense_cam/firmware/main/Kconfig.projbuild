@@ -1,0 +1,34 @@
+menu "Phase 5 — App configuration"
+
+    config WIFI_SSID
+        string "Wi-Fi SSID"
+        default ""
+        help
+            SSID of the Wi-Fi access point to join. Leave empty to skip
+            Wi-Fi bring-up (phase5_net_start_blocking will fail fast with
+            a clear error in that case).
+
+    config WIFI_PASSWORD
+        string "Wi-Fi password"
+        default ""
+        help
+            WPA2-PSK password. Leave empty for open networks.
+
+    config WIFI_CONNECT_TIMEOUT_MS
+        int "Wi-Fi connect timeout (ms)"
+        range 1000 120000
+        default 30000
+        help
+            Maximum time phase5_net_start_blocking will wait for an IP
+            address before returning ESP_ERR_TIMEOUT.
+
+    config WIFI_MAX_RETRY
+        int "Wi-Fi connect retry count"
+        range 1 100
+        default 10
+        help
+            Number of esp_wifi_connect() retries triggered on
+            WIFI_EVENT_STA_DISCONNECTED before giving up. Each retry
+            inserts a small backoff.
+
+endmenu

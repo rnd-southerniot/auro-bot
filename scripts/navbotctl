@@ -12,6 +12,7 @@ Usage:
   navbotctl stop
   navbotctl status
   navbotctl face <idle|listening|thinking|speaking|driving|halted|low_battery>
+  navbotctl look
 """
 from __future__ import annotations
 
@@ -43,7 +44,7 @@ def _flag(args: list[str], name: str, default: float) -> float:
 
 def main(argv: list[str]) -> int:
     if not argv:
-        print("usage: navbotctl <drive-mode|drive|stop|status|face> ...", file=sys.stderr)
+        print("usage: navbotctl <drive-mode|drive|stop|status|face|look> ...", file=sys.stderr)
         return 2
     cmd, rest = argv[0], argv[1:]
     try:
@@ -62,6 +63,8 @@ def main(argv: list[str]) -> int:
             print(call("get_status", {}))
         elif cmd == "face":
             print(call("set_face", {"state": rest[0] if rest else "idle"}))
+        elif cmd == "look":
+            print(call("look", {}))
         else:
             print(f"unknown command: {cmd}", file=sys.stderr)
             return 2

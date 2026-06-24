@@ -1,0 +1,16 @@
+# ESP-IDF / Espressif-aligned style
+BasedOnStyle: Google
+Language: Cpp
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+AlignAfterOpenBracket: Align
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+BreakBeforeBraces: Linux
+PointerAlignment: Right
+SpaceAfterCStyleCast: false
+SortIncludes: false
+IncludeBlocks: Preserve

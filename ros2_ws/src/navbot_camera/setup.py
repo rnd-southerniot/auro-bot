@@ -17,7 +17,7 @@ setup(
     zip_safe=True,
     maintainer="robotics",
     maintainer_email="robotics@example.com",
-    description="Pi Camera (CSI) feed + frame-grab helper for the navbot voice brain.",
+    description="XIAO ESP32-S3 Sense networked camera (HTTP/JPEG) + frame-grab helper for the navbot voice brain.",
     license="Apache-2.0",
     entry_points={
         "console_scripts": [

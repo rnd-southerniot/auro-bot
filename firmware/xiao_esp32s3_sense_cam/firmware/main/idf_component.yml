@@ -1,0 +1,6 @@
+## Managed components for the application "main".
+## https://components.espressif.com/components/espressif/esp32-camera
+## https://components.espressif.com/components/espressif/mqtt
+dependencies:
+  espressif/esp32-camera: "^2.0.15"
+  espressif/mqtt: "^1.0.0"

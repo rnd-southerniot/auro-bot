@@ -12,14 +12,19 @@ Auth: the Anthropic SDK reads ``ANTHROPIC_API_KEY`` from the environment.
 """
 from __future__ import annotations
 
+import base64
 import os
 import time
 from typing import Any, Callable
 
+from navbot_voice.camera_client import CameraClient
 from navbot_voice.robot_client import RobotClient
 from navbot_voice.safety import SafetyGate
 
 DEFAULT_MODEL = os.environ.get("NAVBOT_LLM_MODEL", "claude-haiku-4-5")
+# Vision uses the stronger "reasoning/vision" model from the plan (Sonnet), since
+# Haiku handles fast intent but the scene description benefits from Sonnet.
+VISION_MODEL = os.environ.get("NAVBOT_VISION_MODEL", "claude-sonnet-4-6")
 
 SYSTEM_PROMPT = (
     "You are the voice and brain of a small two-wheeled differential-drive robot. "
@@ -35,8 +40,10 @@ SYSTEM_PROMPT = (
     "- The person can say 'stop' at any time; that is handled instantly in hardware, "
     "so never argue with a stop. Use the stop tool yourself if asked to stop.\n"
     "- For 'what's your status' or battery/e-stop questions, call get_status.\n"
-    "- If you can't do something (no camera yet, can't navigate to named places), say so "
-    "honestly in one sentence rather than pretending."
+    "- To see / look around / answer 'what do you see', call look with a short query; it returns "
+    "a description from the robot's camera that you relay in one spoken sentence.\n"
+    "- If you can't do something (e.g. navigate to named places), say so honestly in one sentence "
+    "rather than pretending."
 )
 
 
@@ -57,6 +64,7 @@ class VoiceAgent:
         self.model = model or DEFAULT_MODEL
         self.max_turns = max_turns
         self.client = anthropic.Anthropic()  # ANTHROPIC_API_KEY from env
+        self.camera = CameraClient()
         self.tools = self._tool_schema()
 
     # -- public entry: transcript -> spoken reply --
@@ -139,6 +147,16 @@ class VoiceAgent:
                     "required": ["state"],
                 },
             },
+            {
+                "name": "look",
+                "description": "Look through the robot's camera and describe what it sees. "
+                "Pass a short query for what to focus on (e.g. 'what is in front of me?', "
+                "'is there a person?'); returns a brief description of the live scene.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {"query": {"type": "string"}},
+                },
+            },
         ]
 
     # -- tool execution --
@@ -166,9 +184,41 @@ class VoiceAgent:
             if name == "set_face":
                 self._face(str(args.get("state", "idle")))
                 return "ok"
+            if name == "look":
+                return self._look(str(args.get("query", "") or "Describe what you see."))
         except Exception as exc:  # noqa: BLE001
             return f"error: {exc}"
         return f"unknown tool: {name}"
+
+    def _look(self, query: str) -> str:
+        self._face("thinking")
+        try:
+            jpeg = self.camera.snapshot_bytes()
+        except Exception as exc:  # noqa: BLE001
+            self._face("idle")
+            return f"camera unavailable: {exc}"
+        b64 = base64.b64encode(jpeg).decode("ascii")
+        try:
+            resp = self.client.messages.create(
+                model=VISION_MODEL,
+                max_tokens=256,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "source": {
+                            "type": "base64", "media_type": "image/jpeg", "data": b64}},
+                        {"type": "text", "text":
+                            f"This is the live view from a small robot's camera. {query} "
+                            "Answer in one or two short, plain sentences."},
+                    ],
+                }],
+            )
+            text = " ".join(b.text for b in resp.content if b.type == "text").strip()
+        except Exception as exc:  # noqa: BLE001
+            text = f"could not analyze the image: {exc}"
+        finally:
+            self._face("idle")
+        return text or "I couldn't make out the scene."
 
     def _drive(self, linear: Any, angular: Any, duration: Any) -> str:
         try:
