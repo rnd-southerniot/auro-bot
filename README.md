@@ -1,325 +1,126 @@
-# makerpi-rp2040-ros2-navbot
+# auro-bot
 
-Implementation repo for a Raspberry Pi 5 + Maker Pi RP2040 differential-drive robot running ROS 2 Jazzy with RPLIDAR C1, `slam_toolbox`, INA238 rail telemetry, and a lean browser-based ground-test console.
+A **voice-controlled, camera-equipped mobile robot**. Say "Jarvis," talk to it,
+and it listens, thinks (Claude), answers out loud, looks at the room, and drives —
+all under a hard safety layer. Built on a Raspberry Pi 5 + Maker Pi RP2040
+differential-drive base running ROS 2 Jazzy, with RPLIDAR C1, an IMU, an ESP32-S3
+voice "buddy," and a XIAO ESP32-S3 Sense Wi-Fi camera.
 
-## Project Overview
+> **Not a tutorial scaffold and not a fake-finished product.** Real firmware, a
+> real ROS 2 stack, a working voice loop validated on hardware, and an honest
+> record of what is and isn't validated yet (see [Status](#status)).
 
-This is an active robotics MVP, not a tutorial scaffold and not a fake-finished product. The repo contains:
+## What it does
 
-- real RP2040 firmware for wheel control, encoder counting, serial protocol, timeout, estop, and stall handling
-- ROS 2 Jazzy packages for base bridging, robot description, LiDAR, SLAM, navigation wrappers, teleop, and a ground-test web console
-- operator documentation for flashing, serial validation, base bringup, LiDAR bringup, cautious SLAM testing, and capture workflow
+- **Hears you** — an ESP32-S3 buddy runs an on-device "Jarvis" wake word and an
+  offline "stop"/"halt" word (esp-sr), streams your speech to the Pi.
+- **Understands** — faster-whisper transcribes; a **Claude brain** decides what to
+  do with a small, safety-gated tool set.
+- **Acts** — drives the base (gated, clamped, abortable), reports status, sets the
+  buddy's animated face.
+- **Speaks** — Piper TTS, played back on the buddy's speaker.
+- **Sees** — a XIAO ESP32-S3 Sense Wi-Fi camera; the brain's `look()` grabs a
+  frame and describes the scene.
+- **Boots hands-free** — a systemd stack brings the whole appliance up on power-on.
 
-## Hardware Split
+## Architecture at a glance
 
-- Raspberry Pi 5:
-  - Ubuntu 24.04
-  - ROS 2 Jazzy
-  - ROS 2 bringup, teleop, LiDAR, SLAM, Nav2
-  - USB serial link to the RP2040
-- Maker Pi RP2040:
-  - Motor PWM output
-  - Encoder counting
-  - Closed-loop wheel velocity control
-  - E-stop and command timeout behavior
-  - Human-readable serial protocol for bench diagnostics
-- Sensors and drivetrain:
-  - Differential drive motors with quadrature encoders
-  - RPLIDAR C1 with its own power feed and Pi-side CP2102 USB serial/data link
-  - Optional INA238 power monitor on the Pi I2C bus
-  - Pi-side 9DOF IMU on `i2c-1` with raw gyro / accel / magnetometer bring-up
-  - Future IMU fusion on the Pi side
+```
+        speech                       /api/* (gated)            USB-serial
+  you ──────────▶ ESP32-S3 buddy ───────────────▶  Pi 5 brain ──────────▶ RP2040 base
+        TTS  ◀────  (wake/STT/TTS,   ◀───────────   (Whisper +              (motors,
+              face)   mic/speaker)      face/audio    Claude + Piper)        encoders, PID)
+                                                          │
+                                              HTTP /snapshot │ (Wi-Fi)
+                                                          ▼
+                                              XIAO ESP32-S3 Sense camera
+```
 
-## Software Architecture
+Two control planes, deliberately separated:
+- **Motion** flows brain → `navbot_web` HTTP `/api/*` → ROS → the Pico. The brain
+  **never** touches the Pico serial port directly (single-owner rule).
+- **Camera** is a Wi-Fi appliance: the Pi just `GET`s a JPEG. No CSI ribbon.
 
-- `firmware/makerpi_rp2040_base/`
-  - Pico SDK + CMake firmware
-  - wheel PWM, encoder sampling, wheel PID, timeout, estop, stall logic
-  - human-readable serial protocol
-- `ros2_ws/`
-  - ROS 2 Jazzy workspace
-  - `navbot_base` for serial bridging, odometry, joint states, and TF
-  - Description, bringup, lidar, slam, localization, navigation, teleop, power, web console, utils, and msg packages
-
-## Current Maturity
-
-Implemented and usable now:
-
-- RP2040 firmware for Milestone 1 base control
-- line-based serial protocol between Pi and RP2040
-- `navbot_base` serial bridge and Pi-side odometry
-- `robot_state_publisher` description/TF path
-- LiDAR wrapper launch path for upstream `sllidar_ros2`
-- Pi-side IMU raw-data bring-up on `i2c-1`
-- Pi-side INA238 reader on `i2c-1` with web-console rail telemetry
-- `robot_localization` wrapper for filtered odometry output
-- `slam_toolbox` wrapper launch path
-- `navbot_web` browser console for teleop, status, and rosbag capture
-
-Still environment- or hardware-dependent:
-
-- final wheel calibration values
-- broader SLAM session coverage beyond the cautious small-area retest
-- Nav2 runtime tuning
-- deeper IMU fusion and production diagnostics
-
-## ROS 2 Stack
-
-- Ubuntu 24.04
-- ROS 2 Jazzy
-- `slam_toolbox` for SLAM
-- Nav2 for navigation
-- Upstream SLLIDAR ROS 2 driver dependency, wrapped but not vendored
-
-## Repo Layout
+## Repo layout
 
 ```text
-.
-├── docs/                           standard architecture, runbook, validation, and web-console docs
-├── firmware/makerpi_rp2040_base/   RP2040 firmware and firmware docs
-├── ros2_ws/                        ROS 2 Jazzy workspace
-├── scripts/                        helper scripts for build and launch
-├── captures/                       rosbag capture output root
-└── TODO.md                         active remaining tasks
+firmware/
+  makerpi_rp2040_base/      RP2040 drive firmware (Pico SDK)
+  esp32s3_voice_buddy/      voice front-end firmware (ESP-IDF)
+  xiao_esp32s3_sense_cam/   Wi-Fi camera firmware (ESP-IDF, vendored)
+ros2_ws/src/
+  navbot_base/ _bringup/ _lidar/ _imu/ _localization/ _slam/ _navigation/  base + nav
+  navbot_web/               HTTP control surface (/api/cmd_vel,/stop,/status)
+  navbot_voice/             the brain: Claude tool-use, SafetyGate, vision
+  navbot_voice_io/          buddy serial link + conversational loop (buddy_brain)
+  navbot_camera/            XIAO camera → ROS (/camera/grab_frame, /camera/status)
+ops/systemd/                autostart units + env template (P7)
+scripts/                    build/launch/install helpers, navbotctl, navbot_service.sh
+docs/                       architecture, runbook, operations, validation, status
 ```
 
-## Validated Reality Recorded In This Repo
-
-Based on the repo continuity files and operator validation history recorded here:
-
-- firmware serial protocol has been bench-validated
-- bench truth is:
-  - left wheel forward => positive left count / positive left velocity
-  - right wheel forward => positive right count / positive right velocity
-  - positive angular `CMD_VEL` produces left / CCW yaw
-- RP2040 false-positive stall handling was fixed with:
-  - startup/reversal grace
-  - setpoint-change stall inhibit
-  - near-zero setpoint drop to `IDLE`
-  - `MAX_RUN_TIME_MS 0` for ROS/mobile use
-- cautious small-area ground motion has now been revalidated:
-  - forward passed
-  - backward passed
-  - left turn passed
-  - right turn passed
-  - stop behavior passed
-  - controller returned to `IDLE OK`
-  - `/odom`, `/joint_states`, and `/base/controller_state` stayed alive
-  - no false `STALL`
-  - no serial disconnect
-- LiDAR is now revalidated live on the Pi:
-  - device path `/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0`
-  - `/scan` live at about `10 Hz`
-  - `frame_id: laser_link`
-  - `beam_count: 720`
-  - working runtime reported `Standard` at `10.0 Hz`
-- LiDAR power truth:
-  - RPLIDAR C1 is individually powered
-  - USB is the serial/data link only
-  - `/scan` can still go stale if the CP2102 adapter re-enumerates and `sllidar_node` keeps a deleted `/dev/ttyUSB*` fd
-- `navbot_web` has now been used successfully for real ground-test control/status/capture on the Pi
-- cautious small-area SLAM re-test is now recorded as a real GO result on the Pi:
-  - launch environment used:
-    - `/opt/ros/jazzy/setup.bash`
-    - `/home/arif/ros2_ws/install/setup.bash`
-    - `/home/arif/projects/makerpi-rp2040-ros2-navbot/ros2_ws/install/setup.bash`
-  - preflight:
-    - `/odom` alive
-    - `/joint_states` alive
-    - `/base/controller_state` alive, `IDLE OK`
-    - `/scan` alive with `frame_id: laser_link` and `beam_count: 720`
-    - `map -> odom` became live after normal startup wait
-  - cautious motion sequence passed:
-    - forward
-    - left turn
-    - second forward
-    - right turn
-    - backward
-    - stop behavior
-  - during the SLAM run:
-    - map updated
-    - `map -> odom` stayed live
-    - `/scan` stayed alive
-    - `/odom` stayed alive
-    - no false `STALL`
-    - no serial disconnect
-  - capture completed cleanly with `return_code: 0`
-
-What is **not** yet claimed as fully closed:
-
-- longer LiDAR/runtime validation in the current Pi image
-- broader map-quality validation beyond the cautious small-area SLAM checkpoint
-- Nav2/autonomy readiness
-
-## Current LiDAR Runtime Expectation
-
-The canonical Pi runtime currently expects:
-
-- `sllidar_ros2`
-- the stable RP2040 by-id path:
-  - `/dev/serial/by-id/usb-Raspberry_Pi_Pico_E661410403114B35-if00`
-- the stable LiDAR by-id path:
-  - `/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0`
-
-Current runtime intent:
-
-- source ROS 2 Jazzy
-- source the external Pi overlay that provides `sllidar_ros2`
-- source this repo workspace
-- keep both base and LiDAR on their stable `/dev/serial/by-id/...` paths
-- let `base_lidar.launch.py` bring up LiDAR, base, and INA238 telemetry together
-- use `imu_localization.launch.py` when IMU data should feed `/odometry/filtered`
-
-## Key Runtime Entry Points
-
-Base only:
+## Quickstart (on the robot, `ssh navbot-pi`)
 
 ```bash
-source /opt/ros/jazzy/setup.bash
-source /path/to/makerpi-rp2040-ros2-navbot/ros2_ws/install/setup.bash
-ros2 launch navbot_bringup base.launch.py \
-  serial_port:=/dev/serial/by-id/usb-Raspberry_Pi_Pico_E661410403114B35-if00
-```
-
-Base + LiDAR:
-
-```bash
-source /opt/ros/jazzy/setup.bash
-source /home/arif/ros2_ws/install/setup.bash
-source /path/to/makerpi-rp2040-ros2-navbot/ros2_ws/install/setup.bash
-ros2 launch navbot_bringup base_lidar.launch.py
-```
-
-Ground-test web console:
-
-```bash
-cd /path/to/makerpi-rp2040-ros2-navbot
-./scripts/launch_web_console.sh
-```
-
-The helper script will free the target port first if an older web-console listener is still holding it. Default port is `8080`; override with `port:=8081` if needed.
-
-Open:
-
-```text
-http://<pi-ip>:8080
-```
-
-SLAM:
-
-```bash
-source /opt/ros/jazzy/setup.bash
-cd /path/to/makerpi-rp2040-ros2-navbot
-./scripts/launch_slam.sh serial_port:=/dev/serial/by-id/usb-Raspberry_Pi_Pico_E661410403114B35-if00
-```
-
-For best LiDAR measurement accuracy on the C1, the vendor manual recommends more than 2 minutes of warm-up with the scan motor already rotating before SLAM starts. Use:
-
-```bash
-source /opt/ros/jazzy/setup.bash
-cd /path/to/makerpi-rp2040-ros2-navbot
-./scripts/launch_slam_with_warmup.sh serial_port:=/dev/serial/by-id/usb-Raspberry_Pi_Pico_E661410403114B35-if00
-```
-
-Validated cautious SLAM retest capture:
-
-```text
-/home/arif/projects/makerpi-rp2040-ros2-navbot/captures/2026-03-24_22-42-51_slam_small_area_retest_20260324
-```
-
-## Operator Runbook
-
-Tonight-style minimal flow:
-
-```bash
-cd /home/arif/projects/makerpi-rp2040-ros2-navbot
-./scripts/setup-pi.sh
+# 1. Build the workspace
 ./scripts/build_ros2_ws.sh
-./scripts/serial_check.sh
-```
 
-Then on the Pi or target runtime:
-
-```bash
-source /opt/ros/jazzy/setup.bash
-source /home/arif/ros2_ws/install/setup.bash
-source /home/arif/projects/makerpi-rp2040-ros2-navbot/ros2_ws/install/setup.bash
-ros2 launch navbot_bringup base_lidar.launch.py
+# 2a. Manual bring-up (base + LiDAR + IMU, then the web API, then the voice loop)
+ros2 launch navbot_bringup imu_localization.launch.py
 ./scripts/launch_web_console.sh
+python3 -m navbot_voice_io.buddy_brain     # owns the buddy on ttyACM1
+
+# 2b. ...or install hands-free autostart (does all of the above on every boot)
+sudo ./scripts/install_autostart.sh --now
 ```
 
-For the validated cautious SLAM pattern, use:
+Then say **"Jarvis, what do you see?"** or **"Jarvis, drive forward two seconds."**
+Drive mode is **off** until you ask to move. See
+[docs/operations/voice-appliance.md](docs/operations/voice-appliance.md) for the
+full operating guide.
 
-```bash
-./scripts/launch_slam.sh serial_port:=/dev/serial/by-id/usb-Raspberry_Pi_Pico_E661410403114B35-if00
-```
+## Status
 
-And drive only a small diagnostic pattern:
+| Phase | Subsystem | State |
+|---|---|---|
+| P0–P1 | brain skeleton + buddy firmware | ✅ link validated |
+| P2 | wake word + AFE + offline "stop" | ✅ on hardware |
+| P3 | STT + TTS conversational loop | ✅ on hardware |
+| P5 | LLM tool-use + gated voice teleop | ✅ on blocks 2026-06-24 (odom +0.18 m, auto-stop) |
+| P6 | XIAO Sense camera + vision | ✅ live grab + status validated 2026-06-24 |
+| P7 | systemd autostart | ⏳ authored + syntax-checked; **robot enable/boot test pending** |
 
-1. forward for 3 s
-2. idle for 2 s
-3. left turn for 4 s
-4. idle for 2 s
-5. backward for 3 s
-6. idle for 3 s
+**Base** (drive/odom/LiDAR/IMU/SLAM): validated through the v1.2.0 freeze and the
+2026-06 home re-assembly bring-up — details in
+[docs/project-status.md](docs/project-status.md).
 
-Current next step after that successful checkpoint:
+**Honest gaps:** Nav2/AMCL needs a fresh home SLAM map (the `office_lab` maps are
+stale after the home move), so `navbot-nav` ships **disabled**. The on-device
+"stop" word only listens in the ~5 s window after a wake (see the safety note in
+[CLAUDE.md](CLAUDE.md)). The hardware e-stop always works.
 
-1. keep the SLAM GO result preserved in repo docs and memory
-2. keep the LiDAR path on the validated `sllidar_ros2` runtime with stable by-id device names
-3. refine calibration if needed
-4. only then expand into broader Nav2/autonomy work
+## Safety model
 
-## Power Telemetry
+Three layers, none of which the brain can bypass:
+1. **SafetyGate** (in the brain) — drive mode OFF by default; clamps
+   `|linear|≤0.12 m/s`, `|angular|≤0.6 rad/s`, `duration≤3 s`; abortable; refuses
+   on e-stop / low motor voltage.
+2. **Command-timeout watchdog** — web 0.35 s → serial_bridge 0.5 s → RP2040 0.5 s.
+   A drive must be actively re-posted or the wheels stop.
+3. **Hardware e-stop + offline "stop" word** — both halt the robot independent of
+   Claude.
 
-`base_lidar.launch.py` and `imu_localization.launch.py` now bring up `navbot_power/ina238_reader` as part of the main Pi stack. The web console shows an operator-facing `Power Telemetry` panel with:
+## Documentation
 
-- rail voltage
-- current
-- power
-- shunt voltage
-- INA238 die temperature
-
-This is real rail telemetry from the INA238 on `i2c-1`. It is not a fake battery percentage. If the INA238 topic is unavailable, the current web-console build keeps rendering and shows unavailable values instead of breaking the page.
-
-## Deployment Status
-
-**CONDITIONAL GO** — validated 2026-04-13, firmware v1.2.0 (`eb4f0c2`).
-
-- Bench validation: 33/33 tests passed (safety, communication, sensor, security)
-- Soak test: 10.8 hours continuous, zero crashes, zero disconnections, zero checksum failures
-- Software stability: confirmed
-- Blocking hardware issue: Pi 5 undervoltage with current adapter under full sensor load
-
-Deployment conditions:
-
-1. Use Raspberry Pi 5 official 27W USB-C adapter (5.1V / 5A)
-2. Supervised operation for first 48 hours
-3. Maximum 8-hour continuous runtime until clean 24-hour soak with proper adapter
-4. LiDAR requires adequate power margin from the supply
-5. Teleop and SLAM mapping only — Nav2 autonomy not yet validated
-
-Rollback baseline: existing Pi image backup + RP2040 firmware backup.
-
-Full results: [docs/VALIDATION_RECORD_20260413.md](docs/VALIDATION_RECORD_20260413.md)
-
-## Documentation Map
-
-- [docs/index.md](docs/index.md) — navigation hub for all project docs
-- [docs/RUNBOOK.md](docs/RUNBOOK.md) — pre-flight, startup/shutdown, incident response, troubleshooting
-- [docs/power-architecture.md](docs/power-architecture.md) — three-battery system with Mermaid diagrams
-- [docs/project-status.md](docs/project-status.md) — current state and Phase C backlog
-- [docs/architecture/system.md](docs/architecture/system.md) — hardware split, ROS graph, serial protocol
-- [docs/operations/web-console.md](docs/operations/web-console.md) — `navbot_web` browser console
-- [docs/operations/foxglove/README.md](docs/operations/foxglove/README.md) — Foxglove bridge and default layout
-- [docs/hardware/pi-rebuild.md](docs/hardware/pi-rebuild.md) — Pi 5 rebuild procedure and five silent bugs
-- [docs/hardware/ina238.md](docs/hardware/ina238.md) — INA238 chip, driver, troubleshooting
-- [docs/hardware/lidar-mount.md](docs/hardware/lidar-mount.md) — RPLIDAR C1 mount conventions
-- [docs/testing/motion-tests.md](docs/testing/motion-tests.md) — 120 mm drive result and coast analysis
-- [docs/validation/README.md](docs/validation/README.md) — validated runtime checkpoints
-- [docs/validation/records/](docs/validation/records/) — archived session records (v1.2.0 freeze, pre-wipe calibration, DWB session)
-- [docs/notes/brake-attempt-forensic.md](docs/notes/brake-attempt-forensic.md) — regen-brake experiment forensic
-- [firmware/makerpi_rp2040_base/README.md](firmware/makerpi_rp2040_base/README.md)
-- [firmware/makerpi_rp2040_base/FLASHING.md](firmware/makerpi_rp2040_base/FLASHING.md)
-- [ros2_ws/README.md](ros2_ws/README.md)
-- [TODO.md](TODO.md)
+- **[docs/index.md](docs/index.md)** — documentation hub.
+- **[docs/operations/voice-appliance.md](docs/operations/voice-appliance.md)** —
+  how to operate the voice + camera robot (essential user guide).
+- **[docs/operations/autostart.md](docs/operations/autostart.md)** — boot-on-power
+  systemd stack.
+- **[docs/RUNBOOK.md](docs/RUNBOOK.md)** — pre-flight safety, startup/shutdown,
+  incident response.
+- **[docs/project-status.md](docs/project-status.md)** — base/nav state + backlog.
+- **[CLAUDE.md](CLAUDE.md)** / **[AGENTS.md](AGENTS.md)** — instructions for agents.
+- Firmware: [base](firmware/makerpi_rp2040_base/README.md) ·
+  [buddy](firmware/esp32s3_voice_buddy/README.md) ·
+  [camera](firmware/xiao_esp32s3_sense_cam/README.md).

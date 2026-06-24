@@ -1,12 +1,15 @@
-# Navbot Documentation
+# auro-bot Documentation
 
-Navigation hub for the claude-navbot project docs. Operators land here
-first — pick the entry point that matches what you're doing.
+Navigation hub for the auro-bot project docs (the voice + camera robot on the
+navbot drive base). Operators land here first — pick the entry point that matches
+what you're doing.
 
 ## First stop
 
-- **Starting a session?** Begin with the pre-flight safety checklist in
-  [RUNBOOK.md](RUNBOOK.md).
+- **Operating the voice robot?** Read
+  [operations/voice-appliance.md](operations/voice-appliance.md).
+- **Starting a base/hardware session?** Begin with the pre-flight safety checklist
+  in [RUNBOOK.md](RUNBOOK.md).
 - **Trying to understand the robot?** Read
   [architecture/system.md](architecture/system.md).
 - **Checking project state?** See
@@ -25,6 +28,17 @@ first — pick the entry point that matches what you're doing.
 
 - [architecture/system.md](architecture/system.md) — hardware split,
   ROS graph, serial protocol, TF tree, current risks.
+
+## Voice + camera (auro-bot)
+
+- [operations/voice-appliance.md](operations/voice-appliance.md) — **essential
+  user guide**: talking to the robot, what it can/can't do, the camera, safety,
+  troubleshooting.
+- [operations/autostart.md](operations/autostart.md) — boot the whole appliance
+  on power-on via the systemd stack (`ops/systemd/`, `install_autostart.sh`).
+- The voice/camera subsystems themselves: `ros2_ws/src/navbot_voice/README.md`,
+  `navbot_voice_io`, `navbot_camera`, and the firmware READMEs under
+  `firmware/{esp32s3_voice_buddy,xiao_esp32s3_sense_cam}/`.
 
 ## Operations
 

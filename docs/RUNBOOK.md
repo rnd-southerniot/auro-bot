@@ -76,6 +76,44 @@ physically accessible and you can see it during the test.
 
 ---
 
+## Voice Appliance (auro-bot)
+
+The voice + camera layer (P0–P7). Full operating guide:
+[operations/voice-appliance.md](operations/voice-appliance.md); boot-on-power:
+[operations/autostart.md](operations/autostart.md).
+
+### Voice pre-flight (in addition to the base checklist above)
+
+- [ ] Wheels free / on blocks if any driving is expected — Claude can be asked to
+      drive. Drive mode is OFF by default, but confirm before talking.
+- [ ] Buddy present: `ls /dev/ttyACM*` shows the CH343 link; nothing else owns it.
+- [ ] Camera up: `/navbot:camera-test` (or `curl http://192.168.68.110/status`).
+- [ ] `claude` CLI resolves on the robot (else the brain falls back to echo).
+
+### Bring up / check
+
+```bash
+# Autostarted? -> /navbot:voice-status  (units active; navbot-nav absent is fine)
+# Manual:
+ros2 launch navbot_bringup imu_localization.launch.py
+./scripts/launch_web_console.sh
+python3 -m navbot_voice_io.buddy_brain      # owns ttyACM1; "say 'Jarvis' …"
+```
+
+### Stopping voice-commanded motion
+
+1. **Hardware e-stop** — always works, independent of Claude.
+2. **"Stop"/"halt" word** — instant, but only in the **~5 s window after a wake**
+   (firmware MultiNet). Do **not** rely on it mid-drive.
+3. `curl -X POST http://127.0.0.1:8080/api/stop` / web-console STOP / `/navbot:stop`.
+4. `sudo systemctl stop navbot.target` (autostart) or `Ctrl-C` the `buddy_brain`.
+
+> ⚠️ Because the "stop" word is windowed, a Claude-initiated drive is bounded by
+> the SafetyGate clamps (≤3 s, ≤0.12 m/s) and the 0.5 s cmd-vel timeout — not by a
+> mid-drive voice stop. Treat the e-stop as the real abort during voice driving.
+
+---
+
 ## Three-Battery Power Architecture (Summary)
 
 Three electrically-independent battery systems. Each has its own switch
