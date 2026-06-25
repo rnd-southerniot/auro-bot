@@ -27,15 +27,21 @@ Active development is on **`main`** (linear phase commits `P0…P7`). This repo 
 
 P0–P3 and P5 teleop are **hardware-validated**; P6 camera validated this June;
 **P7 autostart is boot-validated on the robot (2026-06-24)** — it powers on into
-the appliance (base+web+voice+camera), with the LiDAR still timing out (`/scan`
-absent — a known hardware issue, not autostart).
+the appliance (base+web+voice+camera). As of **2026-06-25** the LiDAR `/scan` is
+**healthy again** (720 beams; the earlier timeout was a flat LiDAR pack, now
+charged), and two voice changes landed: a cumulative **≤6 s/episode motion
+budget** (fixes drive-command chaining) and **visual search** (`look_around` +
+`turn` — spin 360°, find a named object, face it). Both bench-validated on
+blocks; on-floor voice validation pending.
 
 - **P0–P1** brain skeleton + buddy firmware (link validated)
 - **P2** on-device wake word + AFE + offline "stop" (esp-sr)
 - **P3** Pi STT + TTS conversational loop (faster-whisper + Piper)
 - **P5** LLM tool-use + gated voice teleop (headless Claude Code, subscription auth);
   validated on blocks 2026-06-24 ("Jarvis, drive forward 2 s" → odom +0.18 m, auto-stop)
-- **P6** perception — XIAO Sense Wi-Fi camera + `look()`/`describe_scene()` in both brains
+- **P6** perception — XIAO Sense Wi-Fi camera + `look()`/`describe_scene()` in both
+  brains; **visual search** (`look_around` 360° photo sweep + `turn`-to-face,
+  2026-06-25) in the Claude Code brain
 - **P7** autostart — systemd stack (base+LiDAR+IMU/EKF → web → voice); **boots
   hands-free on the robot, validated 2026-06-24** ([record](docs/validation/records/2026-06-24-autostart-validation.md))
 
@@ -85,7 +91,8 @@ absent — a known hardware issue, not autostart).
 - Default to minimal, scoped changes; don't refactor beyond the request.
 - Single source of truth for base state: [docs/project-status.md](docs/project-status.md).
   Voice/camera/autostart ops: [docs/operations/voice-appliance.md](docs/operations/voice-appliance.md),
-  [docs/operations/autostart.md](docs/operations/autostart.md).
+  [docs/operations/autostart.md](docs/operations/autostart.md). End-user
+  voice/camera guide: [docs/guides/talking-to-auro.md](docs/guides/talking-to-auro.md).
 - Operator bench self-tests: the `/navbot:*` slash commands
   ([docs/operations/bench-test-commands.md](docs/operations/bench-test-commands.md)).
   Quick safe ones: `/navbot:preflight`, `/navbot:status`, `/navbot:stop`,

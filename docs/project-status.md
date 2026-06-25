@@ -10,6 +10,15 @@
   at `dc04ba9`, ~14 rsync'd uncommitted files); session-13 IMU driver/config
   edits applied to the Pi (backups `*.bak-20260616`) and staged on the Mac
   checkout — not yet committed.
+**2026-06-25 note:** LiDAR `/scan` is **healthy again** (720 beams; the prior
+  boot timeout was a flat LiDAR pack, now charged) — a fresh home SLAM map run is
+  unblocked (`navbot-nav` still disabled until a map exists). Voice-side this
+  session: cumulative **≤6 s/episode motion budget** (drive-chaining fix) and
+  **visual search** (`look_around`+`turn`); both bench-validated on blocks. See
+  [validation/records/2026-06-25-voice-motion-budget.md](validation/records/2026-06-25-voice-motion-budget.md)
+  and [.../2026-06-25-visual-search.md](validation/records/2026-06-25-visual-search.md).
+  A `CDRIVE` serial-bridge log-spam (firmware emits a record the bridge doesn't
+  parse) was observed — open follow-up.
 **Firmware version:** `1.3.0` (unchanged) with counter-drive + TEST_PWM +
   wheel_radius 0.0325 m. RP2040 confirmed live this session (`ACK PING
   1.3.0`, `STATE IDLE OK`).

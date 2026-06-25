@@ -29,7 +29,8 @@ speaks the reply.
 |---|---|
 | "Jarvis, **what do you see**?" | grabs a camera frame and describes the scene |
 | "Jarvis, **drive forward two seconds**" | enables drive mode, drives ~0.10 m/s, auto-stops |
-| "Jarvis, **turn left a little**" | a short, clamped in-place-ish turn |
+| "Jarvis, **turn left a little**" | a short, clamped in-place turn |
+| "Jarvis, **look for my mug**" / "**find the chair**" | spins a full 360°, photographs each heading, and if it spots the thing, **turns to face it** and tells you where (see Camera) |
 | "Jarvis, **what's your status**?" | controller / e-stop / odometry / battery / LiDAR |
 | "Jarvis, **stop**" | halts now (also works as an offline word — see Safety) |
 
@@ -42,12 +43,15 @@ Tips:
 
 ## What it can and can't do (today)
 
-**Can:** converse, describe what the camera sees, report status, and drive short
-clamped distances/turns on command.
+**Can:** converse, describe what the camera sees, report status, drive short
+clamped distances/turns on command, and **visually search** — spin 360° looking
+for a named object and turn to face it.
 
 **Can't yet:** autonomous navigation to named places (Nav2/AMCL needs a fresh home
-map — `navbot-nav` is installed but disabled), and it won't hear a "stop" shouted
-*in the middle* of a Claude-initiated drive (see Safety). It has no arm/manipulator.
+map — `navbot-nav` is installed but disabled; the LiDAR `/scan` is healthy again
+as of 2026-06-25, so a mapping run is now possible). It won't hear a "stop"
+shouted *in the middle* of a Claude-initiated drive (see Safety). It has no
+arm/manipulator, and visual search finds things in *view* — it can't move to them.
 
 ## Camera
 
@@ -64,15 +68,40 @@ a new network or address, update that env / `voice_agent.yaml` and
 `navbot_camera/config/camera.yaml`. In ROS, the same camera is exposed as
 `/camera/grab_frame` + `/camera/status` by `navbot_camera`.
 
+The camera is mounted on the robot facing forward, so **turning the robot aims
+the camera** — that's what makes visual search work.
+
+### Visual search ("look for X")
+
+Ask it to *find / look for / where is* something and it runs a 360° photo sweep:
+rotate in place in 8 steps (45° each), grab a still at each heading, then the
+brain reads all 8 frames, and if the object is in one, **turns to face it** and
+says where (e.g. "found your mug, it's to my right now"). If it's in none, it
+says it looked all around and couldn't find it. The sweep is in-place rotation
+only — it does **not** drive across the room.
+
+Operators can drive the same primitives directly (robot on blocks or clear floor,
+drive mode on):
+```bash
+navbotctl look-around --target "mug"   # 360° sweep -> prints "<deg> -> <JPEG path>" x8
+navbotctl turn --degrees 90            # rotate in place (+ = left/CCW)
+```
+
 ## Safety (read this)
 
 - **Drive mode is OFF by default.** The robot will not move until you ask it to and
-  the brain enables drive mode. Speeds/durations are hard-clamped
-  (`≤0.12 m/s`, `≤0.6 rad/s`, `≤3 s`).
+  the brain enables drive mode. Speeds/durations are hard-clamped per command
+  (`≤0.12 m/s`, `≤0.6 rad/s`, `≤3 s`), **and** a cumulative **≤6 s/episode** budget
+  bounds total forward/back motion from one request — so "drive for 40 seconds"
+  yields a brief move, not a 4 m run (added 2026-06-25, see
+  [validation record](../validation/records/2026-06-25-voice-motion-budget.md)).
+  In-place rotation (turns, visual-search sweeps) is exempt from that budget but
+  still drive-mode-gated and "stop"-abortable.
 - **"Stop" word:** the buddy detects "stop"/"halt" on-device and halts instantly,
   independent of Claude — **but only in the ~5 s window after a wake.** A "stop"
   shouted during a later drive may not be heard. Until that's fixed (continuous
-  detector), rely on the bounded motion (≤3 s) and the controls below.
+  detector), rely on the bounded motion (≤3 s/call, ≤6 s/episode) and the controls
+  below.
 - **Always-available stops:** the **hardware e-stop**, and
   `./scripts/launch_web_console.sh` UI / `curl -X POST http://127.0.0.1:8080/api/stop`,
   and `/navbot:stop`.
@@ -85,7 +114,8 @@ a new network or address, update that env / `voice_agent.yaml` and
 |---|---|
 | No wake / no response | buddy on `ttyACM1`? voice loop running? mic gain (see [[buddy-voice-loop]] memory) |
 | "camera unavailable" on look | `curl http://192.168.68.110/status`; is the XIAO powered + on Wi-Fi? |
-| "refused to move" | drive mode off, e-stop active, or low motor voltage — the reply says which |
+| Search spins but never finds | object out of the camera's view/too small/poor light; try again facing the area, or ask "what do you see" while pointed at it |
+| "refused to move" / "reached the motion limit" | drive mode off, e-stop active, low motor voltage, or the 6 s/episode budget is spent — the reply says which; wait a moment or re-ask |
 | Replies but won't drive | base bringup up? `/navbot:status`; web console reachable on :8080? |
 | Brain falls back to echo | no `claude` on PATH and no `ANTHROPIC_API_KEY` — install/auth the Claude CLI |
 

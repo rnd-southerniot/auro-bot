@@ -115,8 +115,10 @@ Three layers, none of which the brain can bypass:
 ## Documentation
 
 - **[docs/index.md](docs/index.md)** — documentation hub.
+- **[docs/guides/talking-to-auro.md](docs/guides/talking-to-auro.md)** — end-user
+  guide: what to say to drive, look, and search by voice (no terminal needed).
 - **[docs/operations/voice-appliance.md](docs/operations/voice-appliance.md)** —
-  how to operate the voice + camera robot (essential user guide).
+  how to operate the voice + camera robot (ops/technical user guide).
 - **[docs/operations/autostart.md](docs/operations/autostart.md)** — boot-on-power
   systemd stack.
 - **[docs/RUNBOOK.md](docs/RUNBOOK.md)** — pre-flight safety, startup/shutdown,
