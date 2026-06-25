@@ -41,7 +41,12 @@ blocks; on-floor voice validation pending.
   validated on blocks 2026-06-24 ("Jarvis, drive forward 2 s" → odom +0.18 m, auto-stop)
 - **P6** perception — XIAO Sense Wi-Fi camera + `look()`/`describe_scene()` in both
   brains; **visual search** (`look_around` 360° photo sweep + `turn`-to-face,
-  2026-06-25) in the Claude Code brain
+  2026-06-25) in the Claude Code brain. In-place rotation (`turn`/`look_around`)
+  is **closed-loop on the IMU gyro** as of 2026-06-26 — validated to ~1° on
+  ±90°/45° turns, replacing the open-loop timed spin that missed by ~30°
+  ([record](docs/validation/records/2026-06-26-imu-closed-loop-turn.md)). NB the
+  compass yaw (`imu.yaw_rad`) is magnetometer-derived and unusable for heading
+  indoors; feedback uses the gyro z-rate.
 - **P7** autostart — systemd stack (base+LiDAR+IMU/EKF → web → voice); **boots
   hands-free on the robot, validated 2026-06-24** ([record](docs/validation/records/2026-06-24-autostart-validation.md))
 

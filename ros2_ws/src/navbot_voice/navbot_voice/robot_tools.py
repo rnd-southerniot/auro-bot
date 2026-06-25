@@ -118,29 +118,89 @@ class RobotTools:
         return f"moved (linear {lin:.2f}, angular {ang:.2f}) for {dur:.1f} s"
 
     # -- in-place rotation (shared by look_around + turn) --
-    # Angular-only, never translates, so it is exempt from the linear motion
-    # budget; bounded instead by the requested angle (<= one full turn). Still
-    # drive-mode gated, e-stop checked, and abortable by the "stop" word.
-    _ROTATE_RATE = min(SafetyGate.MAX_ANGULAR, 0.5)  # rad/s, shared so headings stay self-consistent
+    # Closed-loop on the IMU *gyro*: we integrate the z-axis angular rate to
+    # measure how far we have ACTUALLY rotated, rather than trusting
+    # commanded-time x rate (the old open-loop spin, which wheel slip silently
+    # corrupted -- a "turn 67" could land ~30 deg off). We use the gyro rate,
+    # NOT the compass yaw: imu.yaw_rad is magnetometer-derived and indoors near
+    # the motors it barely tracks rotation (measured +2.8 deg over a real 60+
+    # deg turn), so it is useless here. If the IMU is unavailable we degrade to
+    # the original timed spin. Angular-only, never translates, so exempt from
+    # the linear motion budget; still drive-mode gated, e-stop checked, bounded
+    # by a hard time ceiling, and abortable by the "stop" word.
+    _ROTATE_RATE = min(SafetyGate.MAX_ANGULAR, 0.5)   # rad/s cruise (shared so headings stay self-consistent)
+    _SPIN_MIN_RATE = min(_ROTATE_RATE, 0.25)          # rad/s floor so we still close the last few degrees
+    _SPIN_KP = 1.5                                    # rad/s per rad of remaining angle (slow down near target)
+    _SPIN_STOP_LEAD = math.radians(2.0)               # stop this far short, for command/stop latency
+    _SPIN_CEILING_FACTOR = 2.5                        # hard time ceiling = this x the nominal time
+
+    def _gyro_z(self) -> float | None:
+        """Live IMU z-axis angular rate (rad/s, + = CCW), or None if unusable."""
+        try:
+            imu = (self.robot.get_status() or {}).get("imu") or {}
+        except Exception:  # noqa: BLE001
+            return None
+        gz = imu.get("angular_velocity_z")
+        if not imu.get("alive") or not isinstance(gz, (int, float)) or math.isnan(gz):
+            return None
+        return float(gz)
+
+    def _gyro_bias(self) -> float | None:
+        """Average the gyro at rest to cancel its zero-rate offset; None if no IMU."""
+        samples = []
+        for _ in range(4):
+            gz = self._gyro_z()
+            if gz is not None:
+                samples.append(gz)
+            time.sleep(0.04)
+        if len(samples) < 2:
+            return None
+        return sum(samples) / len(samples)
+
+    def _spin_timed(self, radians_to_turn: float) -> bool:
+        """Open-loop timed spin -- fallback used only when the IMU is unavailable."""
+        ang = math.copysign(self._ROTATE_RATE, radians_to_turn)
+        deadline = time.monotonic() + abs(radians_to_turn) / self._ROTATE_RATE
+        while time.monotonic() < deadline:
+            if self.safety.aborted:
+                return True
+            self.robot.cmd_vel(0.0, ang)  # keeps the web watchdog open
+            time.sleep(0.1)
+        return False
 
     def _spin(self, radians_to_turn: float) -> bool:
         """Rotate in place by ``radians_to_turn`` (+ = left/CCW). Returns True if aborted."""
         if abs(radians_to_turn) < 1e-3:
             return False
-        ang = math.copysign(self._ROTATE_RATE, radians_to_turn)
-        deadline = time.time() + abs(radians_to_turn) / self._ROTATE_RATE
+        direction = math.copysign(1.0, radians_to_turn)
+        target = abs(radians_to_turn)
+        bias = self._gyro_bias()  # also gives the IMU a beat to prove it's alive
         try:
-            while time.time() < deadline:
+            if bias is None:  # no usable IMU -> degrade to the old timed spin
+                return self._spin_timed(radians_to_turn)
+            turned = 0.0
+            last = time.monotonic()
+            ceiling = last + (target / self._ROTATE_RATE) * self._SPIN_CEILING_FACTOR + 1.0
+            while True:
                 if self.safety.aborted:
                     return True
-                self.robot.cmd_vel(0.0, ang)  # ~5 Hz holds the web watchdog open
-                time.sleep(0.2)
+                now = time.monotonic()
+                remaining = target - abs(turned)
+                if remaining <= self._SPIN_STOP_LEAD or now >= ceiling:
+                    return False
+                rate = max(self._SPIN_MIN_RATE, min(self._ROTATE_RATE, self._SPIN_KP * remaining))
+                self.robot.cmd_vel(0.0, direction * rate)  # command first to hold the watchdog open
+                time.sleep(0.06)
+                gz = self._gyro_z()
+                t2 = time.monotonic()
+                if gz is not None:  # integrate actual rotation; a missing sample just isn't counted
+                    turned += (gz - bias) * (t2 - last)
+                last = t2
         finally:
             try:
                 self.robot.stop()
             except Exception:  # noqa: BLE001
                 pass
-        return False
 
     def look_around(self, steps: Any = 8, target: Any = "") -> str:
         """Sweep a full 360° in place, grabbing one stationary frame per heading.
