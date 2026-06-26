@@ -6,7 +6,7 @@ frame-grab helper the voice brain (`navbot_voice`) uses for `look()` /
 
 The camera is **not** a CSI Pi-camera — it's the ESP32-S3 Sense firmware in
 [`firmware/xiao_esp32s3_sense_cam`](../../../firmware/xiao_esp32s3_sense_cam),
-which joins the robot's Wi-Fi (AP `Auro`) and serves JPEG over HTTP:
+which joins the robot's Wi-Fi (AP `Auro_IoT`) and serves JPEG over HTTP:
 
 - `GET <camera_url>/snapshot` — single JPEG (control plane, `:80`)
 - `GET <camera_url>:81/stream` — live MJPEG (not used by `look()`)
@@ -24,20 +24,20 @@ relay.
 ## Configure the board address
 
 The XIAO takes a DHCP lease on the robot's AP. Set `camera_url` in
-[`config/camera.yaml`](config/camera.yaml) (confirmed `192.168.68.110` on
-2026-06-24), or override at launch.
+[`config/camera.yaml`](config/camera.yaml) (confirmed `192.168.68.107` on
+2026-06-26), or override at launch.
 
 ## Run
 
 ```bash
 ros2 launch navbot_camera camera.launch.py
 # or point at a different board address:
-ros2 launch navbot_camera camera.launch.py camera_url:=http://192.168.68.110
+ros2 launch navbot_camera camera.launch.py camera_url:=http://192.168.68.107
 ```
 
 Quick check the board directly (no ROS):
 
 ```bash
-curl -s http://192.168.68.110/status
-curl -s http://192.168.68.110/snapshot -o frame.jpg   # valid JFIF JPEG
+curl -s http://192.168.68.107/status
+curl -s http://192.168.68.107/snapshot -o frame.jpg   # valid JFIF JPEG
 ```

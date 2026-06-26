@@ -26,6 +26,7 @@
 #include "esp_heap_caps.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
@@ -396,9 +397,31 @@ static esp_err_t stream_handler(httpd_req_t *req)
 /* ---------------- GET /status ---------------- */
 
 #if PHASE5_MOTION_ENABLED
+/* Map the last reset cause to a short token so the reboot reason is visible
+ * over HTTP (it is otherwise only on the serial console). "BROWNOUT" here
+ * confirms a power-sag reset; "PANIC"/"*_WDT" point at firmware instead. */
+static const char *reset_reason_name(esp_reset_reason_t r)
+{
+    switch (r) {
+    case ESP_RST_POWERON:   return "POWERON";
+    case ESP_RST_EXT:       return "EXT";
+    case ESP_RST_SW:        return "SW";
+    case ESP_RST_PANIC:     return "PANIC";
+    case ESP_RST_INT_WDT:   return "INT_WDT";
+    case ESP_RST_TASK_WDT:  return "TASK_WDT";
+    case ESP_RST_WDT:       return "WDT";
+    case ESP_RST_DEEPSLEEP: return "DEEPSLEEP";
+    case ESP_RST_BROWNOUT:  return "BROWNOUT";
+    case ESP_RST_SDIO:      return "SDIO";
+    case ESP_RST_USB:       return "USB";
+    case ESP_RST_JTAG:      return "JTAG";
+    default:                return "UNKNOWN";
+    }
+}
+
 static esp_err_t status_handler(httpd_req_t *req)
 {
-    char json[480];
+    char json[544];
 
     bool     m     = phase5_motion_is_active();
     bool     m_en  = phase5_motion_get_enabled();
@@ -406,7 +429,9 @@ static esp_err_t status_handler(httpd_req_t *req)
     uint32_t evts  = phase5_motion_event_count();
     float    fps   = phase5_cam_pump_fps();
     int      psram_kb = (int)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024);
+    int      heap_kb  = (int)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024);
     int      uptime_s = (int)(esp_timer_get_time() / 1000000);
+    const char *reset_reason = reset_reason_name(esp_reset_reason());
 
     const char *fs_name = phase5_cam_pump_get_framesize_name();
     int         quality = phase5_cam_pump_get_quality();
@@ -443,6 +468,7 @@ static esp_err_t status_handler(httpd_req_t *req)
         "\"seconds_since_last\":%.2f,"
         "\"event_count\":%u,\"fps\":%.1f,\"free_psram_kb\":%d,"
         "\"uptime_s\":%d,\"rssi_dbm\":%d,"
+        "\"reset_reason\":\"%s\",\"free_heap_kb\":%d,"
         "\"framesize\":\"%s\",\"quality\":%d,"
 #if PHASE6_MQTT_ENABLED
         "\"mqtt_enabled\":%s,\"mqtt_state\":\"%s\","
@@ -455,7 +481,7 @@ static esp_err_t status_handler(httpd_req_t *req)
         m    ? "true" : "false",
         m_en ? "true" : "false",
         (double)since, (unsigned)evts, (double)fps, psram_kb,
-        uptime_s, rssi_dbm, fs_name, quality,
+        uptime_s, rssi_dbm, reset_reason, heap_kb, fs_name, quality,
 #if PHASE6_MQTT_ENABLED
         mqtt_enabled ? "true" : "false", mqtt_state,
         mqtt_uri, mqtt_topic, mqtt_user,

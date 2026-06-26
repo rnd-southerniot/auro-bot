@@ -36,7 +36,10 @@ SYSTEM_PROMPT = (
     "drive mode is off, call set_drive_mode(enabled=true) first, then drive.\n"
     "- Move conservatively. Forward is positive linear (about 0.10 m/s is normal); "
     "turning left is positive angular (about 0.5 rad/s). Use short durations (1-2 s). "
-    "Speeds and durations are hard-clamped, so larger numbers are reduced, not honored.\n"
+    "Speeds and durations are hard-clamped, so larger numbers are reduced, not honored. "
+    "There is also a cumulative motion limit per request (~6 s total): do NOT chain many "
+    "drives to satisfy a long ask like 'drive for 40 seconds' — do one short, safe move and "
+    "tell the person you keep moves brief for safety.\n"
     "- The person can say 'stop' at any time; that is handled instantly in hardware, "
     "so never argue with a stop. Use the stop tool yourself if asked to stop.\n"
     "- For 'what's your status' or battery/e-stop questions, call get_status.\n"
@@ -230,6 +233,9 @@ class VoiceAgent:
             return f"refused to move: {reason}"
 
         lin, ang, dur = self.safety.clamp(linear, angular, duration)
+        dur, budget_reason = self.safety.reserve_motion(dur)
+        if dur <= 0.0:
+            return f"refused to move: {budget_reason}"
         self.safety.begin_move()
         self._face("driving")
         aborted = False

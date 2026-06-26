@@ -129,6 +129,18 @@ esp_err_t phase5_net_start_blocking(void)
     ESP_LOGI(TAG, "wifi_init done, connecting to \"%s\"", CONFIG_WIFI_SSID);
     ESP_ERROR_CHECK(esp_wifi_start());
 
+    /* Cap Wi-Fi TX power. This board is USB-powered and the OV-camera +
+     * Wi-Fi-TX current spike is the most likely brownout trigger (intermittent
+     * resets under HTTP load). The AP link is very strong here (RSSI ~-40 dBm,
+     * ~20 dB of margin), so full TX power buys nothing and just raises the peak
+     * current. 40 = 10 dBm in the API's 0.25 dBm units. Non-fatal if it fails. */
+    esp_err_t tx_err = esp_wifi_set_max_tx_power(40);
+    if (tx_err != ESP_OK) {
+        ESP_LOGW(TAG, "set_max_tx_power(40) failed: %d (continuing at default power)", tx_err);
+    } else {
+        ESP_LOGI(TAG, "wifi max tx power capped to 10 dBm (brownout mitigation)");
+    }
+
     /* --- block on event group --- */
     EventBits_t bits = xEventGroupWaitBits(
         s_event_group,

@@ -21,7 +21,7 @@ def generate_launch_description():
             DeclareLaunchArgument("log_level", default_value="info"),
             DeclareLaunchArgument(
                 "camera_url",
-                default_value="http://192.168.68.110",
+                default_value="http://192.168.68.107",
                 description="XIAO camera base URL (override the board address here)",
             ),
             Node(

@@ -26,6 +26,13 @@
 - ESP-IDF brownout detector enabled, default threshold (~2.44 V on VDD_CPU).
 - On brownout: HW reset → boot log shows `RTCWDT_BROWN_OUT_RESET` (ESP-IDF reports `ESP_RST_BROWNOUT`).
 - Phase 1 firmware logs the reset reason on every boot to make brownouts visible without instrumentation.
+- As of 2026-06-26 the reset reason is **also exposed over HTTP** at `GET /status`
+  (`reset_reason` + `free_heap_kb`), so an intermittent field reboot can be classified
+  (`BROWNOUT` vs `PANIC`/`*_WDT`) without a serial console.
+- **Mitigation:** Wi-Fi TX power is capped to 10 dBm (`esp_wifi_set_max_tx_power(40)` in
+  `phase5_net.c`). On a strong link (RSSI ~-40 dBm) full power is unnecessary, and the TX
+  current spike is the most likely brownout trigger on this USB-powered board. The durable
+  fix is still a low-resistance USB cable + a 5 V supply with ≥500 mA headroom.
 
 ## Battery (BAT pad)
 

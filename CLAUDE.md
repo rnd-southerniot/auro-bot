@@ -27,22 +27,40 @@ Active development is on **`main`** (linear phase commits `P0…P7`). This repo 
 
 P0–P3 and P5 teleop are **hardware-validated**; P6 camera validated this June;
 **P7 autostart is boot-validated on the robot (2026-06-24)** — it powers on into
-the appliance (base+web+voice+camera), with the LiDAR still timing out (`/scan`
-absent — a known hardware issue, not autostart).
+the appliance (base+web+voice+camera). As of **2026-06-25** the LiDAR `/scan` is
+**healthy again** (720 beams; the earlier timeout was a flat LiDAR pack, now
+charged), and two voice changes landed: a cumulative **≤6 s/episode motion
+budget** (fixes drive-command chaining) and **visual search** (`look_around` +
+`turn` — spin 360°, find a named object, face it). Both bench-validated on
+blocks; on-floor voice validation pending.
 
 - **P0–P1** brain skeleton + buddy firmware (link validated)
 - **P2** on-device wake word + AFE + offline "stop" (esp-sr)
 - **P3** Pi STT + TTS conversational loop (faster-whisper + Piper)
 - **P5** LLM tool-use + gated voice teleop (headless Claude Code, subscription auth);
   validated on blocks 2026-06-24 ("Jarvis, drive forward 2 s" → odom +0.18 m, auto-stop)
-- **P6** perception — XIAO Sense Wi-Fi camera + `look()`/`describe_scene()` in both brains
+- **P6** perception — XIAO Sense Wi-Fi camera + `look()`/`describe_scene()` in both
+  brains; **visual search** (`look_around` 360° photo sweep + `turn`-to-face,
+  2026-06-25) in the Claude Code brain. In-place rotation (`turn`/`look_around`)
+  is **closed-loop on the IMU gyro** as of 2026-06-26 — validated to ~1° on
+  ±90°/45° turns, replacing the open-loop timed spin that missed by ~30°
+  ([record](docs/validation/records/2026-06-26-imu-closed-loop-turn.md)). NB the
+  compass yaw (`imu.yaw_rad`) is magnetometer-derived and unusable for heading
+  indoors; feedback uses the gyro z-rate.
 - **P7** autostart — systemd stack (base+LiDAR+IMU/EKF → web → voice); **boots
   hands-free on the robot, validated 2026-06-24** ([record](docs/validation/records/2026-06-24-autostart-validation.md))
 
 > ⚠️ **Known safety gap (P5→fix):** the on-device "stop" word only fires inside
 > the firmware's ~5 s post-wake MultiNet window — a "stop" shouted *during* a
 > later Claude-initiated drive isn't heard. Motion stays bounded by the clamps
-> (≤3 s, ≤0.12 m/s) + the 0.5 s cmd-vel timeout. The hardware **e-stop** always works.
+> (≤3 s, ≤0.12 m/s per call) + a cumulative **≤6 s/episode** motion budget
+> + the 0.5 s cmd-vel timeout. The hardware **e-stop** always works.
+>
+> The per-episode budget was added 2026-06-25 after a live test showed the brain
+> would satisfy "drive for 40 seconds" by *chaining* ~11 clamped 3 s drives
+> (~3.9 m) — the per-call clamp alone did **not** bound total motion. `SafetyGate`
+> now caps cumulative commanded drive-time per wake-episode
+> ([record](docs/validation/records/2026-06-25-voice-motion-budget.md)).
 
 ## Hardware quick reference
 
@@ -52,9 +70,12 @@ absent — a known hardware issue, not autostart).
   `/dev/serial/by-id/usb-Raspberry_Pi_Pico_E661410403114B35-if00`.
 - **Buddy** (ESP32-S3-WROOM): USB-serial (CH343→UART0) to the Pi on `ttyACM1`,
   framed audio protocol (`firmware/esp32s3_voice_buddy/PROTOCOL.md`). "Jarvis" wake.
-- **Camera** (XIAO ESP32-S3 Sense): **Wi-Fi only**, not wired to the Pi. Serves
-  `:80/snapshot` (JPEG), `:81/stream` (MJPEG), `:80/status`. DHCP-reserved at
-  `192.168.68.110` on AP "Auro" (MAC `8C:BF:EA:8E:65:04`).
+- **Camera** (XIAO ESP32-S3 Sense): the brain reaches it **over Wi-Fi** (serves
+  `:80/snapshot` (JPEG), `:81/stream` (MJPEG), `:80/status`), but it **is** USB-wired
+  to navbot-pi for power + flashing — native USB-JTAG at
+  `/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_8C:BF:EA:8E:65:04-if00`
+  (flash by this by-id path; ttyACM numbers shuffle on reboot). DHCP-reserved at
+  `192.168.68.107` on AP "Auro_IoT" (MAC `8C:BF:EA:8E:65:04`).
 - **IMU** (Pi I²C-1): L3G4200D `0x69`, LSM303DLHC accel `0x19`/mag `0x1E`, mode
   `x_forward_flipped`. INA238 power monitor `0x40` on the motor rail.
 
@@ -65,7 +86,7 @@ absent — a known hardware issue, not autostart).
 - **The robot** = `ssh navbot-pi` (→ `arif@192.168.68.126`, Ubuntu 24.04 / ROS 2
   Jazzy). The voice/camera stack runs here. Don't assume robot paths exist on this
   host (the external sllidar overlay is `/home/arif/ros2_ws/install`).
-- The camera (`192.168.68.110`) is reachable from this host over Wi-Fi.
+- The camera (`192.168.68.107`) is reachable from this host over Wi-Fi.
 
 ## Working rules (this project)
 
@@ -78,7 +99,8 @@ absent — a known hardware issue, not autostart).
 - Default to minimal, scoped changes; don't refactor beyond the request.
 - Single source of truth for base state: [docs/project-status.md](docs/project-status.md).
   Voice/camera/autostart ops: [docs/operations/voice-appliance.md](docs/operations/voice-appliance.md),
-  [docs/operations/autostart.md](docs/operations/autostart.md).
+  [docs/operations/autostart.md](docs/operations/autostart.md). End-user
+  voice/camera guide: [docs/guides/talking-to-auro.md](docs/guides/talking-to-auro.md).
 - Operator bench self-tests: the `/navbot:*` slash commands
   ([docs/operations/bench-test-commands.md](docs/operations/bench-test-commands.md)).
   Quick safe ones: `/navbot:preflight`, `/navbot:status`, `/navbot:stop`,
