@@ -19,7 +19,8 @@ Active development is on **`main`** (linear phase commits `P0…P7`). This repo 
 | Drive base (RP2040 fw 1.3.0) | `firmware/makerpi_rp2040_base/` | motors, encoders, PID, e-stop, serial protocol |
 | ROS 2 base + sensors | `ros2_ws/src/navbot_*` | serial bridge, odom, LiDAR, IMU/EKF, SLAM/Nav2, web API |
 | Voice buddy (ESP32-S3) | `firmware/esp32s3_voice_buddy/` | WakeNet "Jarvis" + offline "stop", mic/speaker, face; USB-serial to Pi |
-| Voice brain | `ros2_ws/src/navbot_voice{,_io}/` | Whisper STT → Claude → Piper TTS; gated teleop via `/api/*` |
+| Voicelog PTT mic (ESP32-S3) | ext repo `rnd-southerniot/voicelog-fw` | battery roaming push-to-talk mic; streams 16 kHz PCM over TCP to the brain's `remote_mic` (2nd mic; buddy keeps the speaker) |
+| Voice brain | `ros2_ws/src/navbot_voice{,_io}/` | Whisper STT → Claude → Piper TTS; gated teleop via `/api/*`; `remote_mic` ingests the voicelog PTT stream |
 | Camera (XIAO Sense) | `firmware/xiao_esp32s3_sense_cam/` | Wi-Fi JPEG camera; the brain's `look()` |
 | Autostart | `ops/systemd/`, `scripts/install_autostart.sh` | boot the whole appliance via systemd |
 
@@ -76,6 +77,12 @@ blocks; on-floor voice validation pending.
   `/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_8C:BF:EA:8E:65:04-if00`
   (flash by this by-id path; ttyACM numbers shuffle on reboot). DHCP-reserved at
   `192.168.68.107` on AP "Auro_IoT" (MAC `8C:BF:EA:8E:65:04`).
+- **Voicelog** (XH-S3E-AI Mini, ESP32-S3, MAC `3C:DC:75:59:50:D0`): battery
+  push-to-talk mic (INMP441, same 16 kHz/16-bit as the buddy). `livemic` fw
+  (`voicelog-fw`, ESP-IDF **v5.4**) streams framed PCM over TCP to the Pi's
+  `remote_mic` (`NAVBOT_REMOTE_MIC_PORT` 8079); tap BOOT to talk, reply on the
+  buddy speaker. Set target via console `host_set <ip> [port]`. Needs its own DHCP
+  reservation (it otherwise squats the camera's `.107`).
 - **IMU** (Pi I²C-1): L3G4200D `0x69`, LSM303DLHC accel `0x19`/mag `0x1E`, mode
   `x_forward_flipped`. INA238 power monitor `0x40` on the motor rail.
 
