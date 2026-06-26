@@ -52,7 +52,11 @@ SYSTEM_PROMPT = (
     "  navbotctl status               # controller / e-stop / odometry / motor voltage / lidar\n"
     "  navbotctl face <state>         # idle|listening|thinking|speaking|driving|halted|low_battery\n"
     "  navbotctl look                 # grab a photo from the robot's camera; prints the saved\n"
-    "                                 # JPEG path. Then use the Read tool on that path to SEE it.\n\n"
+    "                                 # JPEG path. Then use the Read tool on that path to SEE it.\n"
+    "  navbotctl say \"<sentence>\"      # speak a sentence aloud NOW through the speaker. Use for\n"
+    "                                 # mid-task progress/announcements (e.g. after a search,\n"
+    "                                 # 'Found it, turning to face it now.'). Your FINAL reply is\n"
+    "                                 # already spoken, so don't use say to repeat it.\n\n"
     "Rules:\n"
     "- To see / look / 'what do you see' / describe surroundings: run `navbotctl look`, then Read "
     "the JPEG path it prints, and answer from the image in one spoken sentence.\n"
@@ -72,12 +76,16 @@ SYSTEM_PROMPT = (
 
 
 class ClaudeBrain:
-    def __init__(self, set_face: Callable[[str], None] | None = None) -> None:
+    def __init__(
+        self,
+        set_face: Callable[[str], None] | None = None,
+        speak: Callable[[str], None] | None = None,
+    ) -> None:
         if not (os.path.exists(CLAUDE_BIN) or shutil.which("claude")):
             raise RuntimeError(f"claude binary not found at {CLAUDE_BIN}")
         self.robot = RobotClient()
         self.safety = SafetyGate()
-        self.tools = RobotTools(self.robot, self.safety, set_face=set_face)
+        self.tools = RobotTools(self.robot, self.safety, set_face=set_face, speak=speak)
         self._server = serve_tools(self.tools, CONTROL_HOST, CONTROL_PORT)
         self._workdir = os.path.expanduser("~/.cache/navbot_brain")
         os.makedirs(self._workdir, exist_ok=True)

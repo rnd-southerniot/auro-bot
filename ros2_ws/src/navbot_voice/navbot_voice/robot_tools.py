@@ -36,11 +36,15 @@ class RobotTools:
         safety: SafetyGate,
         set_face: Callable[[str], None] | None = None,
         camera: CameraClient | None = None,
+        speak: Callable[[str], None] | None = None,
     ) -> None:
         self.robot = robot
         self.safety = safety
         self._face = set_face or (lambda _state: None)
         self.camera = camera or CameraClient()
+        # Speak a phrase out the buddy speaker (Piper TTS). Wired from buddy_brain;
+        # no-op if the brain runs without a buddy link (e.g. bench/CLI testing).
+        self._speak = speak or (lambda _text: None)
 
     def set_drive_mode(self, enabled: bool) -> str:
         self.safety.set_drive_mode(bool(enabled))
@@ -67,6 +71,26 @@ class RobotTools:
             return f"unknown face state: {state}"
         self._face(state)
         return "ok"
+
+    def say(self, text: Any) -> str:
+        """Speak a sentence aloud through the buddy speaker (Piper TTS).
+
+        For announcements/progress mid-task (e.g. "found it, turning now") or when
+        a search is driven programmatically over the control server rather than by
+        a spoken "Jarvis" command (in which case the brain's final reply is already
+        spoken). Shows the 'speaking' face while talking.
+        """
+        text = str(text or "").strip()
+        if not text:
+            return "nothing to say"
+        self._face("speaking")
+        try:
+            self._speak(text)
+        except Exception as exc:  # noqa: BLE001
+            self._face("idle")
+            return f"speak failed: {exc}"
+        self._face("idle")
+        return "said: " + text
 
     def look(self) -> str:
         """Grab a fresh camera frame; return the saved JPEG path (for the brain to read)."""
@@ -290,6 +314,8 @@ class RobotTools:
                 return self.get_status()
             if name == "set_face":
                 return self.set_face(args.get("state", "idle"))
+            if name == "say":
+                return self.say(args.get("text", ""))
             if name == "look":
                 return self.look()
             if name == "look_around":

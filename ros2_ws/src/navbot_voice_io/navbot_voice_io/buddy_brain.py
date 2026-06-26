@@ -67,6 +67,7 @@ class BuddyBrain:
         self._whisper = None
         self._np = None
         self._lock = threading.Lock()
+        self._speak_lock = threading.Lock()  # serialize TTS bursts (reply vs. say tool)
         self._buf = bytearray()
         self._collecting = False
         self._last_audio = 0.0
@@ -83,7 +84,7 @@ class BuddyBrain:
             return
         # 1) Claude Code brain (subscription OAuth, auto-refresh) — the chosen path.
         try:
-            self._agent = ClaudeBrain(set_face=self.link.send_face)
+            self._agent = ClaudeBrain(set_face=self.link.send_face, speak=self._speak)
             self._robot = self._agent.robot
             self._safety = self._agent.safety
             print("[brain] voice control ON (P5) — headless Claude Code.", flush=True)
@@ -207,10 +208,13 @@ class BuddyBrain:
             input=text.encode("utf-8"), capture_output=True,
         )
         pcm = proc.stdout
-        for i in range(0, len(pcm), TTS_FRAME_BYTES):
-            self.link.send_tts(pcm[i:i + TTS_FRAME_BYTES])
-            time.sleep(0.018)   # pace ~ real-time so the buddy's 16 KB buffer doesn't overflow
-        self.link.send_tts_end()
+        # Serialize whole bursts so a `say`-tool call (HTTP thread) and a spoken
+        # reply can't interleave their TTS frames into garbled audio.
+        with self._speak_lock:
+            for i in range(0, len(pcm), TTS_FRAME_BYTES):
+                self.link.send_tts(pcm[i:i + TTS_FRAME_BYTES])
+                time.sleep(0.018)   # pace ~ real-time so the buddy's 16 KB buffer doesn't overflow
+            self.link.send_tts_end()
 
 
 def main() -> int:
