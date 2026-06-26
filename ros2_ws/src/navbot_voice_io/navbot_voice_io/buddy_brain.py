@@ -19,6 +19,7 @@ Run on the robot (buddy on ttyACM1):
 from __future__ import annotations
 
 import os
+import queue
 import subprocess
 import threading
 import time
@@ -26,6 +27,7 @@ import time
 from navbot_voice_io import protocol
 from navbot_voice_io.buddy_link import BuddyLink
 from navbot_voice_io.loopback_tool import detect_port
+from navbot_voice_io.remote_mic import RemoteMic
 
 # The brain (LLM/tools/safety) lives in the sibling navbot_voice package. When
 # run from source (python3 -m navbot_voice_io.buddy_brain) that package isn't on
@@ -58,6 +60,7 @@ PIPER_VOICE = os.path.expanduser(os.environ.get("PIPER_VOICE", "~/piper/en_US-am
 SAMPLE_RATE = 16000
 UTTERANCE_SILENCE_S = 0.6   # end-of-utterance: no mic frames for this long
 MIN_UTTERANCE_S = 0.3       # ignore blips shorter than this
+REMOTE_MIC_PORT = int(os.environ.get("NAVBOT_REMOTE_MIC_PORT", "8079"))  # 0 disables the 2nd (PTT) mic
 TTS_FRAME_BYTES = 640       # 320 samples @ 16 kHz = 20 ms
 
 
@@ -75,6 +78,11 @@ class BuddyBrain:
         self._robot = None
         self._safety = None
         self._agent = None
+        # Both mics feed one worker so utterances are handled one-at-a-time
+        # (single robot body; STT/Claude are serial). The buddy submits on
+        # silence, the remote PTT mic submits on its END frame.
+        self._jobs: "queue.Queue[tuple[bytes, str]]" = queue.Queue()
+        self._remote = None
 
     def _build_agent(self) -> None:
         """Stand up the P5 brain: prefer headless Claude Code (subscription), then
@@ -121,6 +129,8 @@ class BuddyBrain:
         self.link.send_face("idle")
         self._build_agent()
         threading.Thread(target=self._utterance_watch, daemon=True).start()
+        threading.Thread(target=self._job_worker, daemon=True).start()
+        self._start_remote_mic()
         print("buddy brain running — say 'Jarvis' then your phrase.", flush=True)
 
     # -- link callbacks (BuddyLink reader thread) --
@@ -165,16 +175,52 @@ class BuddyBrain:
                     self._buf = bytearray()
                     self._collecting = False
             if audio is not None and len(audio) >= int(SAMPLE_RATE * 2 * MIN_UTTERANCE_S):
-                self._process(audio)
+                self._submit(audio, "buddy")
             elif audio is not None:
                 self.link.send_face("idle")  # too short
 
-    def _process(self, pcm: bytes) -> None:
+    # -- second audio source: remote push-to-talk mic over TCP --
+    def _start_remote_mic(self) -> None:
+        if REMOTE_MIC_PORT <= 0:
+            return
+        try:
+            self._remote = RemoteMic(REMOTE_MIC_PORT, self._on_remote_utterance)
+            self._remote.start()
+        except Exception as exc:  # noqa: BLE001 — a 2nd-mic failure must never break voice
+            print(f"[remote-mic] disabled: {exc}", flush=True)
+            self._remote = None
+
+    def _on_remote_utterance(self, pcm: bytes, device: str) -> None:
+        """RemoteMic END callback (its own thread): queue for the shared pipeline.
+
+        The remote mic is push-to-talk, so it is NOT gated by ``_busy`` — it has
+        its own mic and won't pick up the buddy's TTS. Overlap just queues.
+        """
+        if len(pcm) >= int(SAMPLE_RATE * 2 * MIN_UTTERANCE_S):
+            self._submit(pcm, f"voicelog:{device}" if device else "voicelog")
+
+    # -- shared single-worker queue (one utterance at a time, either mic) --
+    def _submit(self, pcm: bytes, source: str) -> None:
+        self._jobs.put((pcm, source))
+
+    def _job_worker(self) -> None:
+        while True:
+            pcm, source = self._jobs.get()
+            try:
+                self._process(pcm, source)
+            except Exception as exc:  # noqa: BLE001 — keep the worker alive
+                print(f"[brain] process error ({source}): {exc}", flush=True)
+                try:
+                    self.link.send_face("idle")
+                except Exception:  # noqa: BLE001
+                    pass
+
+    def _process(self, pcm: bytes, source: str = "buddy") -> None:
         self._busy = True
         try:
             self.link.send_face("thinking")
             text = self._stt(pcm)
-            print(f"heard: {text!r}", flush=True)
+            print(f"heard [{source}]: {text!r}", flush=True)
             if not text.strip():
                 self.link.send_face("idle")
                 return
