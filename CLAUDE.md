@@ -81,8 +81,8 @@ blocks; on-floor voice validation pending.
   push-to-talk mic (INMP441, same 16 kHz/16-bit as the buddy). `livemic` fw
   (`voicelog-fw`, ESP-IDF **v5.4**) streams framed PCM over TCP to the Pi's
   `remote_mic` (`NAVBOT_REMOTE_MIC_PORT` 8079); tap BOOT to talk, reply on the
-  buddy speaker. Set target via console `host_set <ip> [port]`. Needs its own DHCP
-  reservation (it otherwise squats the camera's `.107`).
+  buddy speaker. Set target via console `host_set <ip> [port]`. DHCP-reserved at
+  `192.168.68.117` (so the camera keeps its `.107`).
 - **IMU** (Pi I²C-1): L3G4200D `0x69`, LSM303DLHC accel `0x19`/mag `0x1E`, mode
   `x_forward_flipped`. INA238 power monitor `0x40` on the motor rail.
 
