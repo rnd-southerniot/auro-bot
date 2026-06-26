@@ -15,6 +15,7 @@ Usage:
   navbotctl status
   navbotctl face <idle|listening|thinking|speaking|driving|halted|low_battery>
   navbotctl look
+  navbotctl say <sentence ...>              # speak a phrase out the buddy speaker
 """
 from __future__ import annotations
 
@@ -46,7 +47,7 @@ def _flag(args: list[str], name: str, default: float) -> float:
 
 def main(argv: list[str]) -> int:
     if not argv:
-        print("usage: navbotctl <drive-mode|drive|turn|look-around|stop|status|face|look> ...", file=sys.stderr)
+        print("usage: navbotctl <drive-mode|drive|turn|look-around|stop|status|face|look|say> ...", file=sys.stderr)
         return 2
     cmd, rest = argv[0], argv[1:]
     try:
@@ -67,6 +68,9 @@ def main(argv: list[str]) -> int:
             print(call("set_face", {"state": rest[0] if rest else "idle"}))
         elif cmd == "look":
             print(call("look", {}))
+        elif cmd == "say":
+            text = " ".join(rest).strip().strip('"')
+            print(call("say", {"text": text}, timeout=30.0))  # synth + paced TTS burst
         elif cmd == "look-around":
             target = ""
             if "--target" in rest:
