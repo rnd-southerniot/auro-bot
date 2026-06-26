@@ -70,9 +70,12 @@ blocks; on-floor voice validation pending.
   `/dev/serial/by-id/usb-Raspberry_Pi_Pico_E661410403114B35-if00`.
 - **Buddy** (ESP32-S3-WROOM): USB-serial (CH343→UART0) to the Pi on `ttyACM1`,
   framed audio protocol (`firmware/esp32s3_voice_buddy/PROTOCOL.md`). "Jarvis" wake.
-- **Camera** (XIAO ESP32-S3 Sense): **Wi-Fi only**, not wired to the Pi. Serves
-  `:80/snapshot` (JPEG), `:81/stream` (MJPEG), `:80/status`. DHCP-reserved at
-  `192.168.68.110` on AP "Auro" (MAC `8C:BF:EA:8E:65:04`).
+- **Camera** (XIAO ESP32-S3 Sense): the brain reaches it **over Wi-Fi** (serves
+  `:80/snapshot` (JPEG), `:81/stream` (MJPEG), `:80/status`), but it **is** USB-wired
+  to navbot-pi for power + flashing — native USB-JTAG at
+  `/dev/serial/by-id/usb-Espressif_USB_JTAG_serial_debug_unit_8C:BF:EA:8E:65:04-if00`
+  (flash by this by-id path; ttyACM numbers shuffle on reboot). DHCP-reserved at
+  `192.168.68.107` on AP "Auro_IoT" (MAC `8C:BF:EA:8E:65:04`).
 - **IMU** (Pi I²C-1): L3G4200D `0x69`, LSM303DLHC accel `0x19`/mag `0x1E`, mode
   `x_forward_flipped`. INA238 power monitor `0x40` on the motor rail.
 
@@ -83,7 +86,7 @@ blocks; on-floor voice validation pending.
 - **The robot** = `ssh navbot-pi` (→ `arif@192.168.68.126`, Ubuntu 24.04 / ROS 2
   Jazzy). The voice/camera stack runs here. Don't assume robot paths exist on this
   host (the external sllidar overlay is `/home/arif/ros2_ws/install`).
-- The camera (`192.168.68.110`) is reachable from this host over Wi-Fi.
+- The camera (`192.168.68.107`) is reachable from this host over Wi-Fi.
 
 ## Working rules (this project)
 

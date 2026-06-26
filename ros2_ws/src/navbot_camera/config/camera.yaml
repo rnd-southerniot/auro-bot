@@ -1,11 +1,11 @@
 # navbot_camera — XIAO ESP32-S3 Sense networked camera (P6 perception).
 # The camera is a Wi-Fi board (firmware/xiao_esp32s3_sense_cam) serving JPEG over
 # HTTP; the Pi just fetches /snapshot. Set camera_url to the XIAO's DHCP address
-# on the robot's AP (measured 192.168.68.110 on AP "Auro", confirmed 2026-06-24 — update if
+# on the robot's AP (measured 192.168.68.107 on AP "Auro_IoT", confirmed 2026-06-26 — update if
 # the lease changes, or use an mDNS/reserved address).
 navbot_camera_frame_grabber:
   ros__parameters:
-    camera_url: "http://192.168.68.110"   # control plane (:80); /snapshot + /status
+    camera_url: "http://192.168.68.107"   # control plane (:80); /snapshot + /status
     snapshot_path: "/snapshot"
     status_path: "/status"
     http_timeout: 4.0

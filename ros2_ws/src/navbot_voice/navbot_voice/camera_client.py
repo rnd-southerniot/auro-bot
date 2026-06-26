@@ -10,7 +10,7 @@ Endpoints (XIAO firmware README, Phase 5.2):
   GET <base>/snapshot  -> single JPEG (control plane, :80)
   GET <base>/status    -> JSON health {fps, motion, rssi_dbm, uptime_s, ...}
 
-Config: ``NAVBOT_CAMERA_URL`` env (default the address measured on AP "Auro").
+Config: ``NAVBOT_CAMERA_URL`` env (default the address measured on AP "Auro_IoT").
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-DEFAULT_CAMERA_URL = os.environ.get("NAVBOT_CAMERA_URL", "http://192.168.68.110")
+DEFAULT_CAMERA_URL = os.environ.get("NAVBOT_CAMERA_URL", "http://192.168.68.107")
 # Where grabbed frames land. Absolute so the headless brain's Read tool can open
 # them by path; shared with navbot_camera's default save_dir.
 DEFAULT_SAVE_DIR = os.environ.get(

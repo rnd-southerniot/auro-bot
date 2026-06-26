@@ -25,7 +25,7 @@ The robot's eyes are a **XIAO ESP32-S3 Sense** Wi-Fi camera
 ([`firmware/xiao_esp32s3_sense_cam`](../../../firmware/xiao_esp32s3_sense_cam)),
 serving JPEG over HTTP — not a CSI Pi-camera. The brain reaches it with
 [`camera_client.py`](navbot_voice/camera_client.py) (`NAVBOT_CAMERA_URL`, default
-`http://192.168.68.110`):
+`http://192.168.68.107`):
 
 - **Headless brain** (`claude_brain.py`, subscription auth): `navbotctl look`
   grabs a frame and prints the JPEG path; the `Read` tool (now allowed) lets

@@ -87,7 +87,7 @@ The voice + camera layer (P0–P7). Full operating guide:
 - [ ] Wheels free / on blocks if any driving is expected — Claude can be asked to
       drive. Drive mode is OFF by default, but confirm before talking.
 - [ ] Buddy present: `ls /dev/ttyACM*` shows the CH343 link; nothing else owns it.
-- [ ] Camera up: `/navbot:camera-test` (or `curl http://192.168.68.110/status`).
+- [ ] Camera up: `/navbot:camera-test` (or `curl http://192.168.68.107/status`).
 - [ ] `claude` CLI resolves on the robot (else the brain falls back to echo).
 
 ### Bring up / check

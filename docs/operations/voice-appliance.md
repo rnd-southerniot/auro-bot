@@ -9,7 +9,7 @@ setup see [autostart.md](autostart.md); for base safety see
 1. **Clear space + free wheels.** If you'll let it drive, put it on blocks or give
    it open floor. Never command motion with wheels jammed.
 2. **Power on** the robot (Pi + base + buddy) and the **XIAO camera** (its own USB
-   power; it joins Wi-Fi `Auro` and self-serves — nothing to plug into the Pi).
+   power; it joins Wi-Fi `Auro_IoT` and self-serves — nothing to plug into the Pi).
 3. **Bring the stack up** — either it autostarts (P7), or manually:
    ```bash
    ssh navbot-pi
@@ -55,12 +55,12 @@ arm/manipulator, and visual search finds things in *view* — it can't move to t
 
 ## Camera
 
-The camera is a Wi-Fi board at **`http://192.168.68.110`** (DHCP-reserved). Quick
+The camera is a Wi-Fi board at **`http://192.168.68.107`** (DHCP-reserved). Quick
 checks, no ROS needed:
 
 ```bash
-curl -s http://192.168.68.110/status            # fps, motion, rssi, uptime
-curl -s http://192.168.68.110/snapshot -o f.jpg # a still JPEG
+curl -s http://192.168.68.107/status            # fps, motion, rssi, uptime
+curl -s http://192.168.68.107/snapshot -o f.jpg # a still JPEG
 ```
 
 The brain reads `NAVBOT_CAMERA_URL` (default that address). If the camera moves to
@@ -113,7 +113,7 @@ navbotctl turn --degrees 90            # rotate in place (+ = left/CCW)
 | Symptom | Check |
 |---|---|
 | No wake / no response | buddy on `ttyACM1`? voice loop running? mic gain (see [[buddy-voice-loop]] memory) |
-| "camera unavailable" on look | `curl http://192.168.68.110/status`; is the XIAO powered + on Wi-Fi? |
+| "camera unavailable" on look | `curl http://192.168.68.107/status`; is the XIAO powered + on Wi-Fi? |
 | Search spins but never finds | object out of the camera's view/too small/poor light; try again facing the area, or ask "what do you see" while pointed at it |
 | "refused to move" / "reached the motion limit" | drive mode off, e-stop active, low motor voltage, or the 6 s/episode budget is spent — the reply says which; wait a moment or re-ask |
 | Replies but won't drive | base bringup up? `/navbot:status`; web console reachable on :8080? |

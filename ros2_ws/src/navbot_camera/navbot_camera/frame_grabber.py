@@ -33,7 +33,7 @@ class FrameGrabber(Node):
 
         # XIAO ESP32-S3 Sense base URL (control plane, :80). The MJPEG stream
         # lives on :81/stream but look() only needs a still, so we use /snapshot.
-        self.declare_parameter("camera_url", "http://192.168.68.110")
+        self.declare_parameter("camera_url", "http://192.168.68.107")
         self.declare_parameter("snapshot_path", "/snapshot")
         self.declare_parameter("status_path", "/status")
         self.declare_parameter("http_timeout", 4.0)
